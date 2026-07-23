@@ -1,0 +1,3784 @@
+<title>AimData</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Inter:wght@300;400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  /* === IDENTIDADE: cor da marca, exclusiva do app === */
+  --brand:#00e5ff;
+
+  /* === FEEDBACK DE UI: estados de ação e resposta do sistema === */
+  --action:#ff6b35;   /* editar, modificar, ações ssecundárias */
+  --confirm:#39ff14;  /* OK, salvo, ativo, estados positivos */
+  --danger:#ff4444;   /* excluir, deletar, cancelar perigoso */
+
+  /* === SEMÂNTICAS: cada métrica tem cor própria e exclusiva === */
+  --metric-kills:#ff3333;
+  --metric-deaths:#ff6b6b;
+  --metric-kd:#b388ff;
+  --metric-kpm:#00d4aa;
+  --metric-kpd:#ff9500;
+  --metric-time:#718096;
+  --metric-points:#c0c0c0;
+  --metric-damage:#ff4757;
+  --metric-assists:#7bed9f;
+  --metric-position:#a29bfe;
+
+  /* === ESTRUTURAIS: arquitetura visual, sem expressão cromática === */
+  --bg:#0a0c10;
+  --surface:#11141b;
+  --border:#1e2430;
+  --muted:#4a5568;
+  --text:#e2e8f0;
+  --sub:#718096;
+}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:14px;min-height:100vh;}
+input,select,textarea{background:#0d1017;border:1px solid var(--border);color:var(--text);
+  font-family:'Inter',sans-serif;font-size:13px;padding:9px 11px;width:100%;outline:none;
+  border-radius:0;transition:border .15s;}
+input:focus,select:focus,textarea:focus{border-color:var(--brand);}
+select option{background:#0d1017;}
+button{cursor:pointer;font-family:'Rajdhani',sans-serif;font-weight:700;
+  letter-spacing:1.5px;text-transform:uppercase;border:none;border-radius:0;transition:all .15s;}
+button:hover{filter:brightness(1.2);}
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:var(--surface);}
+::-webkit-scrollbar-thumb{background:var(--border);}
+#app{display:flex;flex-direction:column;min-height:100vh;}
+#header{background:var(--surface);border-bottom:1px solid var(--border);
+  padding:12px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.hex{width:32px;height:32px;background:var(--brand);
+  clip-path:polygon(50% 0%,100% 38%,82% 100%,18% 100%,0% 38%);
+  display:flex;align-items:center;justify-content:center;}
+.hex span{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;color:#000;}
+.app-title{font-family:'Rajdhani',sans-serif;font-size:20px;font-weight:700;letter-spacing:2px;
+  text-transform:uppercase;white-space:nowrap;}
+.app-title em{color:var(--brand);font-style:normal;}
+#profileBar{display:flex;align-items:center;gap:8px;flex:1;min-width:0;}
+#profileSelect{flex:1;min-width:0;max-width:300px;font-family:'Rajdhani',sans-serif;
+  font-size:13px;font-weight:600;letter-spacing:1px;}
+.hbtn{background:transparent;padding:7px 13px;font-size:11px;font-family:'Rajdhani',sans-serif;
+  font-weight:700;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;flex-shrink:0;}
+.hbtn.brand{border:1px solid var(--brand);color:var(--brand);}
+.hbtn.action{border:1px solid var(--action);color:var(--action);}
+.hbtn.danger{border:1px solid var(--danger);color:var(--danger);}
+.hbtn.confirm{border:1px solid var(--confirm);color:var(--confirm);}
+.hbtn-label{border:1px solid var(--action);color:var(--action);padding:7px 13px;font-size:11px;
+  font-family:'Rajdhani',sans-serif;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;
+  cursor:pointer;display:inline-block;flex-shrink:0;}
+#tabs{background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;display:flex;overflow-x:auto;}
+.tab-btn{padding:11px 16px;font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:600;
+  letter-spacing:1.5px;text-transform:uppercase;color:var(--sub);background:none;border:none;
+  border-bottom:2px solid transparent;cursor:pointer;transition:all .15s;white-space:nowrap;}
+.tab-btn.active{color:var(--brand);border-bottom:2px solid var(--brand);}
+.tab-btn:hover:not(.active){color:var(--text);}
+#content{padding:20px;flex:1;}
+.pane{display:none;}
+.pane.active{display:block;}
+.card{background:var(--surface);border:1px solid var(--border);padding:18px 20px;margin-bottom:16px;}
+.card-title{font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:600;
+  letter-spacing:2px;text-transform:uppercase;color:var(--sub);margin-bottom:16px;
+  display:flex;align-items:center;gap:8px;}
+.card-title::before{content:'';display:block;width:3px;height:14px;background:var(--brand);flex-shrink:0;}
+.card-title.brand::before{background:var(--brand);}
+.card-title.action::before{background:var(--action);}
+.card-title.confirm::before{background:var(--confirm);}
+.card-title.danger::before{background:var(--danger);}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px;}
+@media(max-width:960px){.grid3{grid-template-columns:1fr 1fr;}}
+@media(max-width:640px){.grid3{grid-template-columns:1fr;}}
+canvas{display:block;width:100%!important;}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:20px;}
+.kpi{background:var(--surface);border:1px solid var(--border);border-top:2px solid var(--brand);padding:14px 16px;display:flex;flex-direction:column;justify-content:space-between;}
+.kpi.action{border-top-color:var(--action);}
+.kpi.confirm{border-top-color:var(--confirm);}
+.kpi.metric-kd{border-top-color:var(--metric-kd);}
+.kpi.metric-kpm{border-top-color:var(--metric-kpm);}
+.kpi.metric-kpd{border-top-color:var(--metric-kpd);}
+.kpi-val.metric-kd{color:var(--metric-kd);}
+.kpi-val.metric-kpm{color:var(--metric-kpm);}
+.kpi-val.metric-kpd{color:var(--metric-kpd);}
+.kpi-val{font-family:'Rajdhani',sans-serif;font-size:26px;font-weight:700;line-height:1;}
+.kpi-val.brand{color:var(--brand);}
+.kpi-val.action{color:var(--action);}
+.kpi-val.confirm{color:var(--confirm);}
+.kpi-goal{cursor:pointer;border-bottom:1px dashed var(--brand);outline:none;background:transparent;
+  color:var(--brand);font-family:'Rajdhani',sans-serif;font-size:26px;font-weight:700;
+  width:80px;line-height:1;}
+.kpi-goal:focus{border-bottom-color:var(--brand);}
+.kpi-label{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--sub);font-family:'Rajdhani',sans-serif;font-weight:600;text-align:center;}
+.kpi-sub{font-size:11px;color:var(--sub);margin-top:4px;}
+.kpi-range{display:flex;justify-content:space-between;align-items:center;margin-top:2px;margin-bottom:4px;padding:0 4px;}
+.kpi-min,.kpi-max{font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:600;color:var(--sub);letter-spacing:0.5px;}
+.kpi-min::before{content:'min ';font-size:9px;color:var(--muted);font-weight:400;}
+.kpi-max::before{content:'max ';font-size:9px;color:var(--muted);font-weight:400;}
+.map-table{width:100%;border-collapse:collapse;}
+.map-table th{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;
+  color:var(--sub);padding:0 8px 10px;border-bottom:1px solid var(--border);}
+.map-table td{padding:8px 8px;border-bottom:1px solid #1e243022;font-size:13px;}
+.map-name{font-family:'Rajdhani',sans-serif;font-weight:600;font-size:14px;}
+.bar-wrap{background:var(--border);height:4px;margin-top:4px;}
+.bar-fill{height:100%;background:var(--brand);}
+.bar-fill.action{background:var(--action);}
+.bar-fill.white{background:var(--text);}
+.num{font-family:'Rajdhani',sans-serif;font-weight:600;}
+.good{color:var(--confirm);}
+.bad{color:var(--action);}
+.log-bar{display:flex;gap:12px;margin-bottom:14px;align-items:flex-end;flex-wrap:wrap;}
+.log-bar label{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--sub);display:block;margin-bottom:5px;}
+.log-bar select{width:180px;}
+.log-count{margin-left:auto;font-size:12px;color:var(--sub);align-self:center;}
+.log-scroll{overflow-x:auto;}
+.log-table{width:100%;border-collapse:collapse;min-width:500px;}
+.log-table th{text-align:left;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;
+  color:var(--sub);padding:0 8px 10px;border-bottom:1px solid var(--border);white-space:nowrap;}
+.log-table td{padding:8px 8px;border-bottom:1px solid #1e243022;vertical-align:middle;}
+.log-table tr:hover td{background:#0d1017;}
+.r-num{font-family:'Rajdhani',sans-serif;}
+.action-btn{background:transparent;color:var(--sub);border:1px solid var(--border);
+  padding:3px 9px;font-size:11px;font-family:'Rajdhani',sans-serif;margin-right:4px;}
+.action-btn.del{color:var(--action);}
+.action-btn:hover{border-color:var(--brand);}
+.edit-input{width:65px!important;padding:4px 6px!important;font-size:12px!important;}
+.edit-select{width:110px!important;padding:4px 6px!important;font-size:12px!important;}
+.save-btn{background:var(--brand);color:#000;padding:4px 12px;font-size:11px;}
+.cancel-btn{background:transparent;color:var(--muted);border:1px solid var(--muted);padding:4px 10px;font-size:11px;}
+.form-wrap{max-width:480px;}
+.field{margin-bottom:12px;}
+.field label{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--sub);display:block;margin-bottom:6px;}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:0;}
+.preview-box{background:#0d1017;border:1px solid var(--border);padding:14px 18px;
+  margin-top:14px;display:flex;gap:24px;flex-wrap:wrap;}
+.preview-item .p-label{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--sub);margin-bottom:4px;}
+.preview-item .p-val{font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:700;}
+.submit-btn{background:var(--brand);color:#000;padding:12px 28px;font-size:14px;width:100%;margin-top:16px;}
+.profile-list{display:flex;flex-direction:column;gap:10px;margin-bottom:20px;}
+.profile-item{background:var(--surface);border:1px solid var(--border);padding:14px 16px;
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.profile-item.active-profile{border-color:var(--brand);}
+.profile-badge{font-family:'Rajdhani',sans-serif;font-size:11px;letter-spacing:1px;
+  text-transform:uppercase;color:var(--brand);background:rgba(0,229,255,0.08);
+  border:1px solid var(--brand);padding:2px 8px;}
+.profile-name{font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:600;flex:1;}
+.profile-sub{font-size:11px;color:var(--sub);}
+.profile-actions{display:flex;gap:6px;margin-left:auto;}
+.metric-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin-bottom:16px;}
+.metric-item{display:flex;align-items:center;gap:8px;padding:8px 10px;
+  background:#0d1017;border:1px solid var(--border);cursor:pointer;transition:border .15s;}
+.metric-item:hover{border-color:var(--brand);}
+.metric-item input[type=checkbox]{width:auto;accent-color:var(--brand);cursor:pointer;}
+.metric-item span{font-size:13px;}
+.metric-item small{font-size:10px;color:var(--sub);}
+.tag-list{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;}
+.tag{background:#0d1017;border:1px solid var(--border);padding:4px 10px;
+  font-family:'Rajdhani',sans-serif;font-size:13px;display:flex;align-items:center;gap:6px;}
+.tag-remove{background:none;border:none;color:var(--action);font-size:14px;padding:0;
+  line-height:1;letter-spacing:0;font-family:sans-serif;}
+.add-tag-row{display:flex;gap:8px;}
+.add-tag-row input{flex:1;}
+.add-tag-btn{background:var(--brand);color:#000;padding:9px 16px;font-size:12px;flex-shrink:0;}
+.empty-state{text-align:center;padding:48px 20px;color:var(--sub);}
+.empty-state .e-icon{font-size:36px;margin-bottom:12px;}
+.empty-state .e-title{font-family:'Rajdhani',sans-serif;font-size:18px;color:var(--text);margin-bottom:6px;}
+.empty-state .e-sub{font-size:13px;}
+.no-chart{background:#0d1017;border:1px dashed var(--border);padding:20px;
+  text-align:center;color:var(--sub);font-size:13px;margin-bottom:16px;}
+#modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;display:none;
+  align-items:center;justify-content:center;padding:20px;}
+#modal-overlay.open{display:flex;}
+#modal{background:var(--surface);border:1px solid var(--border);width:100%;max-width:540px;
+  max-height:90vh;overflow-y:auto;padding:24px;}
+.modal-title{font-family:'Rajdhani',sans-serif;font-size:18px;font-weight:700;
+  letter-spacing:2px;text-transform:uppercase;margin-bottom:20px;color:var(--brand);}
+.modal-actions{display:flex;gap:8px;margin-top:20px;justify-content:flex-end;}
+.modal-save{background:var(--brand);color:#000;padding:10px 24px;font-size:13px;}
+.modal-cancel{background:transparent;color:var(--sub);border:1px solid var(--muted);padding:10px 18px;font-size:13px;}
+.modal-delete{background:transparent;color:var(--danger);border:1px solid var(--danger);padding:10px 18px;font-size:13px;margin-right:auto;}
+.section-label{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--sub);
+  margin-bottom:8px;display:block;}
+hr.divider{border:none;border-top:1px solid var(--border);margin:16px 0;}
+#toast{position:fixed;bottom:24px;right:24px;background:var(--surface);border:1px solid var(--brand);
+  color:var(--brand);font-family:'Rajdhani',sans-serif;font-size:13px;letter-spacing:1px;
+  padding:10px 20px;z-index:999;display:none;animation:fadeup .25s ease;max-width:320px;}
+#toast.record-gold{border-color:#FFD700;color:#FFD700;background:#0d0f08;box-shadow:0 0 14px rgba(255,215,0,0.25);}
+#toast.record-silver{border-color:#C0C0C0;color:#C0C0C0;background:#0d0d0f;box-shadow:0 0 10px rgba(192,192,192,0.2);}
+#toast.record-bronze{border-color:#CD7F32;color:#CD7F32;background:#0f0c08;box-shadow:0 0 10px rgba(205,127,50,0.2);}
+@keyframes fadeup{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+.map-toggle{background:transparent;color:var(--sub);border:1px solid var(--border);padding:8px 16px;font-family:'Rajdhani',sans-serif;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;margin-top:12px;width:100%;text-align:left;transition:border .15s;}
+.map-toggle:hover{border-color:var(--brand);color:var(--brand);}
+.map-tabs{display:flex;gap:4px;margin-bottom:12px;border-bottom:1px solid var(--border);}
+.map-tab-btn{
+  padding:0;width:44px;height:44px;font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:600;
+  letter-spacing:1.5px;text-transform:uppercase;color:var(--sub);background:none;border:none;
+  border-bottom:2px solid transparent;cursor:pointer;transition:all .15s;white-space:nowrap;
+  display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;
+}
+.map-tab-btn.active{color:var(--brand);border-bottom:2px solid var(--brand);}
+.map-tab-btn:hover:not(.active){color:var(--text);}
+.map-tab-btn.metric-kd{color:var(--metric-kd);border-bottom-color:var(--metric-kd);}
+.map-tab-btn.metric-kpm{color:var(--metric-kpm);border-bottom-color:var(--metric-kpm);}
+.map-tab-btn.metric-kpd{color:var(--metric-kpd);border-bottom-color:var(--metric-kpd);}
+.map-tab-btn.metric-kills{color:var(--metric-kills);border-bottom-color:var(--metric-kills);}
+#ch-mapbars{max-height:320px;}
+#mapTableWrap{margin-top:12px;}
+#mapTableHead th{border-bottom:1px solid var(--border);padding:0 8px 10px;}
+#mapTableHead td{padding:6px 8px;border-bottom:1px solid #1e243022;}
+#mapTableHead td:first-child{padding-top:4px;}
+.map-col-map{width:28%;min-width:140px;text-align:center;}
+.map-col-partidas{width:14%;text-align:center;}
+.map-col-kd{width:14%;text-align:center;}
+.map-col-kpm{width:14%;text-align:center;}
+.map-col-kpd{width:14%;text-align:center;}
+.map-card-title{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:16px;}
+.map-card-title-left{display:flex;align-items:center;gap:8px;}
+.map-help{position:relative;width:18px;height:18px;border:1px solid var(--border);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:help;transition:all .15s;flex-shrink:0;}
+.map-help:hover{border-color:var(--brand);color:var(--brand);}
+.map-help span{font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:700;color:var(--sub);line-height:1;}
+.map-help:hover span{color:var(--brand);}
+.map-help-tooltip{position:absolute;top:24px;left:0;background:#0d1017;border:1px solid var(--border);padding:12px 14px;width:260px;z-index:10;display:none;font-size:12px;line-height:1.6;color:var(--text);box-shadow:0 4px 12px rgba(0,0,0,.4);}
+.map-help-tooltip::before{content:'';position:absolute;top:-5px;left:6px;width:8px;height:8px;background:#0d1017;border-left:1px solid var(--border);border-top:1px solid var(--border);transform:rotate(45deg);}
+.map-help:hover .map-help-tooltip{display:block;}
+.map-help-tooltip strong{color:var(--brand);font-family:'Rajdhani',sans-serif;font-weight:600;}
+.map-view-tab-btn{padding:7px 14px;font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--sub);background:none;border:1px solid var(--border);cursor:pointer;transition:all .15s;white-space:nowrap;}
+.map-view-tab-btn.active{color:var(--brand);border-color:var(--brand);}
+.kpi-meta{display:flex;align-items:center;gap:6px;margin-bottom:4px;}
+.kpi-meta-label{font-size:13px;letter-spacing:1px;text-transform:uppercase;color:var(--sub);font-family:'Rajdhani',sans-serif;font-weight:700;}
+.kpi-goal-inline{background:transparent;border:none;border-bottom:1px dashed var(--brand);color:var(--brand);font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:600;width:50px;padding:2px 0;text-align:center;outline:none;}
+.kpi-goal-inline:focus{border-bottom-style:solid;}
+.kpi-goal-inline.metric-kd{color:var(--metric-kd);border-bottom-color:var(--metric-kd);}
+.kpi-goal-inline.metric-kpm{color:var(--metric-kpm);border-bottom-color:var(--metric-kpm);}
+.kpi-goal-inline.metric-kpd{color:var(--metric-kpd);border-bottom-color:var(--metric-kpd);}
+.kpi-progress{font-size:10px;font-family:'Rajdhani',sans-serif;font-weight:600;letter-spacing:0.5px;margin-top:2px;}
+.kpi-progress.above{color:var(--confirm);}
+.kpi-progress.below{color:var(--danger);}
+.kpi-progress.on-target{color:var(--brand);}
+.kpi-goal-inline:placeholder-shown{border-bottom:1px dashed var(--muted);opacity:0.6;}
+.kpi-meta-label.metric-kd{color:rgba(179,136,255,0.5);}
+.kpi-meta-label.metric-kpm{color:rgba(0,212,170,0.5);}
+.kpi-meta-label.metric-kpd{color:rgba(255,149,0,0.5);}
+.kpi-goal-inline:placeholder-shown{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234a5568' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 2px center;padding-right:18px;}
+.kpi-progress.above{color:var(--confirm);}
+.kpi-progress.below{color:var(--danger);}
+.kpi-progress.on-target{color:var(--brand);}
+.kpi-progress.above-bad{color:var(--danger);}
+.kpi-progress.below-good{color:var(--confirm);}
+.kpi-main{flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:4px;}
+.kpi-header{position:relative;width:100%;}
+.kpi-help{position:absolute;top:0;right:0;width:18px;height:18px;border:1px solid var(--border);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:help;transition:all .15s;}
+.kpi-help:hover{border-color:var(--brand);color:var(--brand);}
+.kpi-help span{font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:700;color:var(--sub);line-height:1;}
+.kpi-help:hover span{color:var(--brand);}
+.kpi-tooltip{position:absolute;top:24px;right:0;background:#0d1017;border:1px solid var(--border);padding:12px 14px;width:260px;z-index:10;display:none;font-size:12px;line-height:1.6;color:var(--text);box-shadow:0 4px 12px rgba(0,0,0,.4);}
+.kpi-tooltip::before{content:'';position:absolute;top:-5px;right:6px;width:8px;height:8px;background:#0d1017;border-left:1px solid var(--border);border-top:1px solid var(--border);transform:rotate(45deg);}
+.kpi-help:hover .kpi-tooltip{display:block;}
+.kpi-tooltip strong{color:var(--brand);font-family:'Rajdhani',sans-serif;font-weight:600;}
+.note-tip{box-shadow:0 4px 12px rgba(0,0,0,.4);}
+.note-tip::after{content:'';position:absolute;bottom:-5px;left:50%;transform:translateX(-50%) rotate(45deg);width:8px;height:8px;background:#0d1017;border-right:1px solid var(--border);border-bottom:1px solid var(--border);}
+#record-tooltip {
+  position: fixed;
+  background: #0d1017;
+  border: 1px solid var(--border);
+  padding: 14px 16px;
+  z-index: 200;
+  pointer-events: none;
+  box-shadow: 0 4px 16px rgba(0,0,0,.5);
+  min-width: 200px;
+  max-width: 260px;
+  display: none;
+}
+#record-tooltip .rt-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+#record-tooltip .rt-medal {
+  font-size: 18px;
+}
+#record-tooltip .rt-title {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+#record-tooltip .rt-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+  font-size: 12px;
+}
+#record-tooltip .rt-label {
+  color: var(--sub);
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+#record-tooltip .rt-val {
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  color: var(--text);
+}
+#record-tooltip .rt-notes {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--sub);
+  font-style: italic;
+  line-height: 1.4;
+}
+
+.onboarding {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 40px 20px;
+  text-align: center;
+}
+.onboarding-hero {
+  margin-bottom: 48px;
+}
+.onboarding-hero h1 {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--text);
+  margin-bottom: 12px;
+}
+.onboarding-hero h1 em {
+  color: var(--brand);
+  font-style: normal;
+}
+.onboarding-hero p {
+  font-size: 15px;
+  color: var(--sub);
+  line-height: 1.6;
+  max-width: 520px;
+  margin: 0 auto 28px;
+}
+.onboarding-steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin-bottom: 40px;
+}
+@media(max-width: 720px) {
+  .onboarding-steps { grid-template-columns: 1fr; }
+}
+.step-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 28px 20px;
+  text-align: center;
+}
+.step-number {
+  width: 36px;
+  height: 36px;
+  background: var(--brand);
+  color: #000;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 14px;
+}
+.step-card h3 {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+.step-card p {
+  font-size: 13px;
+  color: var(--sub);
+  line-height: 1.5;
+}
+.onboarding-cta {
+  background: var(--brand);
+  color: #000;
+  padding: 14px 36px;
+  font-size: 14px;
+  letter-spacing: 1.5px;
+}
+.onboarding-cta:hover {
+  filter: brightness(1.15);
+}
+.onboarding-note {
+  margin-top: 20px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+@keyframes pulse-action {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(255,107,53,0.4); }
+  50% { opacity: 0.85; box-shadow: 0 0 0 6px rgba(255,107,53,0); }
+}
+.hbtn.sync-pending {
+  border-color: var(--action);
+  color: var(--action);
+  animation: pulse-action 2s ease infinite;
+}
+
+.settings-wrapper {
+  position: relative;
+  flex-shrink: 0;
+}
+.settings-dropdown {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  z-index: 50;
+  min-width: 160px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.4);
+}
+.settings-dropdown.open {
+  display: block;
+}
+.settings-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--sub);
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+  transition: background .15s, color .15s;
+}
+.settings-dropdown-item:hover {
+  background: var(--border);
+  color: var(--text);
+}
+.settings-dropdown-item.action {
+  color: var(--action);
+}
+.settings-dropdown-item.action:hover {
+  color: var(--action);
+}
+
+/* === BOTÃO FLUTUANTE — NOVA PARTIDA === */
+#fab-nova-partida {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  z-index: 90;
+  background: var(--brand);
+  color: #000;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  border: none;
+  padding: 13px 22px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 4px 20px rgba(0, 229, 255, 0.35);
+  transition: filter .15s, box-shadow .15s, transform .15s;
+}
+#fab-nova-partida:hover {
+  filter: brightness(1.15);
+  box-shadow: 0 6px 28px rgba(0, 229, 255, 0.55);
+  transform: translateY(-2px);
+}
+#fab-nova-partida:active {
+  transform: translateY(0px);
+  box-shadow: 0 2px 10px rgba(0, 229, 255, 0.3);
+}
+#fab-nova-partida .fab-icon {
+  font-size: 18px;
+  line-height: 1;
+  font-style: normal;
+}
+
+/* Remove todas as regras nth-child anteriores e substitui por: */
+.log-table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+/* Coluna # */
+.log-table th:nth-child(1),
+.log-table td:nth-child(1) {
+  width: 44px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+/* Coluna Hora/Data */
+.log-table th:nth-child(2),
+.log-table td:nth-child(2) {
+  width: 140px;
+  white-space: nowrap;
+  text-align: center;
+  overflow: hidden;
+}
+
+/* Coluna Mapa */
+.log-table th:nth-child(3),
+.log-table td:nth-child(3) {
+  width: 120px;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Colunas de métricas (4ª até penúltima excluindo Notas e Ações) */
+.log-table th:not(:nth-child(1)):not(:nth-child(2)):not(:nth-child(3)):not(:nth-last-child(1)):not(:nth-last-child(2)),
+.log-table td:not(:nth-child(1)):not(:nth-child(2)):not(:nth-child(3)):not(:nth-last-child(1)):not(:nth-last-child(2)) {
+  width: 62px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+/* Coluna Notas (penúltima) */
+.log-table th:nth-last-child(2),
+.log-table td:nth-last-child(2) {
+  width: 38px;
+  text-align: center;
+}
+
+/* Coluna Ações (última) */
+.log-table th:last-child,
+.log-table td:last-child {
+  width: 90px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+</style>
+
+<div id="app">
+
+  <div id="header">
+    <div class="logo">
+      <div class="hex"><span>AD</span></div>
+      <div class="app-title">Aim<em>Data</em></div>
+    </div>
+    <div id="profileBar">
+      <select id="profileSelect" onchange="switchProfile(this.value)"></select>
+      <button class="hbtn brand" onclick="openModal('new')">＋ Perfil</button>
+      <button class="hbtn action" onclick="openModal('edit')">✎</button>
+    </div>
+    <div style="display:flex;gap:8px;flex-shrink:0;align-items:center;">
+      <button id="authBtn" class="hbtn brand" onclick="handleAuthClick()">🎮 Entrar com Discord</button>
+      <button id="syncBtn" class="hbtn brand" onclick="handleManualSync()" style="display:none">☁ Sync</button>
+      <div class="settings-wrapper">
+        <button class="hbtn brand" onclick="toggleSettingsDropdown(event)" id="settingsBtn">⚙</button>
+        <div class="settings-dropdown" id="settingsDropdown">
+          <button class="settings-dropdown-item" onclick="exportData();closeSettingsDropdown()">↓ Export</button>
+          <label class="settings-dropdown-item action">
+            ↑ Import
+            <input type="file" accept=".json" style="display:none" onchange="importData(event);closeSettingsDropdown()">
+          </label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="tabs">
+    <button class="tab-btn active" onclick="setTab('dashboard')">📊 Dashboard</button>
+    <button class="tab-btn" onclick="setTab('log')">📋 Histórico</button>
+    <button class="tab-btn" onclick="setTab('profiles')">⚙ Perfis</button>
+  </div>
+
+  <div id="content">
+
+    <div id="pane-dashboard" class="pane active">
+      <div id="dash-inner"></div>
+    </div>
+
+    <div id="pane-log" class="pane">
+      <div class="log-bar">
+        <div>
+          <label>Filtrar por mapa</label>
+          <select id="filterMap" onchange="renderLog()">
+            <option value="">Todos</option>
+          </select>
+        </div>
+        <div class="log-count" id="logCount"></div>
+      </div>
+      <div class="log-scroll">
+        <table class="log-table" id="logTable">
+          <thead><tr id="logHead"></tr></thead>
+          <tbody id="logBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="pane-add" class="pane">
+      <div class="form-wrap">
+        <div class="card">
+          <div class="card-title">Registrar Nova Partida</div>
+          <div id="addFormFields"></div>
+          <div class="preview-box" id="preview" style="display:none"></div>
+          <button class="submit-btn" onclick="addMatch()">Registrar Partida</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="pane-profiles" class="pane">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <div style="font-family:'Rajdhani',sans-serif;font-size:13px;letter-spacing:1px;text-transform:uppercase;color:var(--sub);">Seus Perfis</div>
+        <button class="hbtn brand" onclick="openModal('new')">＋ Novo Perfil</button>
+      </div>
+      <div id="profileList"></div>
+    </div>
+
+  </div>
+</div>
+
+<button id="fab-nova-partida" onclick="setTab('add')" title="Registrar nova partida">
+  <span class="fab-icon">＋</span> Nova Partida
+</button>
+
+<div id="modal-overlay" onclick="closeModalOutside(event)">
+  <div id="modal">
+    <div class="modal-title" id="modal-title">Novo Perfil</div>
+    <div id="modal-body"></div>
+    <div class="modal-actions" id="modal-actions"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<div id="record-tooltip"></div>
+
+<script>
+/* ============================================================
+   CONSTANTES E CONFIGURAÇÃO
+   Valores fixos que não mudam durante o uso do app.
+   Aqui ficam: chave do localStorage, mapa de cores,
+   lista de métricas disponíveis e dados de exemplo (SEED).
+   ============================================================ */
+/* === CHAVE DE ARMAZENAMENTO DINÂMICA === */
+function getStorageKey() {
+  return currentUser ? `gt_v1_${currentUser.id}` : "gt_v1";
+}
+/* === SUPABASE CONFIG === */
+const SUPABASE_URL = "https://yvybixhnsxvpwhfyvsgb.supabase.co";
+// Chave injetada pelo servidor via variável de ambiente
+// Se não houver chave, o modo offline funciona normalmente
+const SUPABASE_ANON_KEY = window.__ENV__?.SUPABASE_ANON_KEY || null;
+
+let supabaseClient = null;
+
+function initSupabase() {
+  try {
+    if (typeof window.supabase !== 'undefined' && window.supabase.createClient) {
+      supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      console.log("✓ Supabase conectado");
+      return true;
+    } else {
+      console.warn("Biblioteca Supabase não disponível. Modo offline.");
+      return false;
+    }
+  } catch (e) {
+    console.error("Falha ao iniciar Supabase:", e);
+    supabaseClient = null;
+    return false;
+  }
+}
+
+// Tenta imediatamente
+let supabaseReady = initSupabase();
+
+// Se falhou, tenta novamente após 1 segundo (CDN pode estar lento)
+if (!supabaseReady) {
+  setTimeout(() => {
+    if (!supabaseClient) {
+      supabaseReady = initSupabase();
+      if (supabaseReady && typeof checkAuth === 'function') {
+        checkAuth();
+      }
+    }
+  }, 1000);
+}
+
+/* === MAPA DE CORES: métricas → variáveis CSS === */
+const METRIC_COLORS = {
+  kills:    "var(--metric-kills)",
+  deaths:   "var(--metric-deaths)",
+  kd:       "var(--metric-kd)",
+  kpm:      "var(--metric-kpm)",
+  kpd:      "var(--metric-kpd)",
+  time:     "var(--metric-time)",
+  points:   "var(--metric-points)",
+  damage:   "var(--metric-damage)",
+  assists:  "var(--metric-assists)",
+  position: "var(--metric-position)",
+};
+
+const KPI_HELP = {
+  kd: `<strong>Média K/D</strong><br><br>
+<em>Kills ÷ Deaths</em> — quantas eliminações você faz para cada morte.<br><br>
+<strong>Meta:</strong> valor que você quer atingir. Digite e pressione Enter.<br>
+<strong>Progresso:</strong> verde = acima da meta (bom), vermelho = abaixo.<br>
+<strong>min / max:</strong> menor e maior K/D no período selecionado.<br><br>
+<em>Quanto maior, melhor.</em>`,
+  kpm: `<strong>Média KPM</strong><br><br>
+<em>Kills ÷ Minutos</em> — eliminações por minuto de jogo.<br><br>
+<strong>Meta:</strong> valor que você quer atingir. Digite e pressione Enter.<br>
+<strong>Progresso:</strong> verde = acima da meta (bom), vermelho = abaixo.<br>
+<strong>min / max:</strong> menor e maior KPM no período selecionado.<br><br>
+<em>Quanto maior, melhor.</em>`,
+  kpd: `<strong>Média KPD</strong><br><br>
+<em>Deaths ÷ Minutos</em> — mortes por minuto de jogo.<br><br>
+<strong>Meta:</strong> valor que você quer atingir. Digite e pressione Enter.<br>
+<strong>Progresso:</strong> <em>invertido</em> — verde = abaixo da meta (bom), vermelho = acima.<br>
+<strong>min / max:</strong> menor e maior KPD no período selecionado.<br><br>
+<em>Quanto menor, melhor. Menos mortes = mais sobrevivência.</em>`,
+  points: `<strong>Média de Pontos</strong><br><br>
+<em>Soma dos pontos ÷ Partidas</em> — pontuação média por partida.<br><br>
+<strong>Meta:</strong> valor que você quer atingir. Digite e pressione Enter.<br>
+<strong>Progresso:</strong> verde = acima da meta (bom), vermelho = abaixo.<br>
+<strong>min / max:</strong> menor e maior pontuação no período selecionado.<br><br>
+<em>Quanto maior, melhor.</em>`,
+  damage: `<strong>Média de Dano</strong><br><br>
+<em>Soma do dano ÷ Partidas</em> — dano médio causado por partida.<br><br>
+<strong>Meta:</strong> valor que você quer atingir. Digite e pressione Enter.<br>
+<strong>Progresso:</strong> verde = acima da meta (bom), vermelho = abaixo.<br>
+<strong>min / max:</strong> menor e maior dano no período selecionado.<br><br>
+<em>Quanto maior, melhor.</em>`,
+  assists: `<strong>Média de Assistências</strong><br><br>
+<em>Soma das assistências ÷ Partidas</em> — assistências médias por partida.<br><br>
+<strong>Meta:</strong> valor que você quer atingir. Digite e pressione Enter.<br>
+<strong>Progresso:</strong> verde = acima da meta (bom), vermelho = abaixo.<br>
+<strong>min / max:</strong> menor e maior número de assistências no período selecionado.<br><br>
+<em>Quanto maior, melhor.</em>`,
+  position: `<strong>Média de Posição</strong><br><br>
+<em>Soma das posições ÷ Partidas</em> — colocação média por partida.<br><br>
+<strong>Meta:</strong> valor que você quer atingir. Digite e pressione Enter.<br>
+<strong>Progresso:</strong> <em>invertido</em> — verde = abaixo da meta (bom), vermelho = acima.<br>
+<strong>min / max:</strong> melhor (menor número) e pior (maior número) colocação no período selecionado.<br><br>
+<em>Quanto menor, melhor. 1º lugar é a melhor posição possível.</em>`,
+};
+
+const ALL_METRICS = [
+  { id:"kills",    label:"Kills",        type:"input" },
+  { id:"deaths",   label:"Deaths",       type:"input" },
+  { id:"time",     label:"Tempo (min)",  type:"input" },
+  { id:"points",   label:"Pontos",       type:"input" },
+  { id:"damage",   label:"Dano",         type:"input" },
+  { id:"assists",  label:"Assistências", type:"input" },
+  { id:"position", label:"Posição",      type:"input" },
+  { id:"kd",  label:"K/D", type:"calc", needs:["kills","deaths"] },
+  { id:"kpm", label:"KPM", type:"calc", needs:["kills","time"]   },
+  { id:"kpd", label:"KPD", type:"calc", needs:["deaths","time"]  },
+];
+const METRIC_MAP = Object.fromEntries(ALL_METRICS.map(m => [m.id, m]));
+const CHARTABLE = ["kills","deaths","kd","kpm","kpd","points","damage","assists","position"];
+
+/* ============================================================
+   ESTADO DO APP
+   Variáveis que guardam os dados em memória enquanto o app
+   está aberto. Mudam durante o uso (perfil ativo, partida
+   em edição, gráficos instanciados, ordenação, etc).
+   ============================================================ */
+let state = buildDefaultState();
+let activeProfileId = null;
+let editingMatchId = null;
+let charts = {};
+let mapSort = { col: 'kd', dir: 'desc' };
+let mapTableVisible = localStorage.getItem("gt_mapTableVisible") !== "false";
+let mapViewMode = 'recent'; // 'recent' = últimas 30 (padrão) | 'total' = histórico completo
+let evolutionTab = "kd";
+let evolutionViewMode = 'total'; // 'total' = histórico completo (padrão) | 'recent' = últimas 30
+let kpiViewMode = 'recent'; // 'recent' = últimas 30 (padrão) | 'total' = histórico completo
+let recordDotsVisible = localStorage.getItem('gt_recordDots') !== 'false';
+
+/* ============================================================
+   PLUGIN DE BOLINHAS DE RECORDE
+   Desenha marcadores dourado, prata e bronze nos 3 maiores
+   (ou menores, para KPD) valores do gráfico linear.
+   ============================================================ */
+const RECORD_MEDALS = [
+  { color: '#FFD700', glow: 'rgba(255,215,0,0.65)',   size: 3.2, label: '🥇 Ouro',   rank: '1º Recorde', cls: 'record-gold'   },
+  { color: '#C0C0C0', glow: 'rgba(192,192,192,0.50)', size: 2.8, label: '🥈 Prata',  rank: '2º Recorde', cls: 'record-silver' },
+  { color: '#CD7F32', glow: 'rgba(205,127,50,0.50)',  size: 2.6, label: '🥉 Bronze', rank: '3º Recorde', cls: 'record-bronze' },
+];
+
+const recordDotsPlugin = {
+  id: 'recordDots',
+  afterDatasetsDraw(chart, args, opts) {
+    if (!opts || !opts.enabled) return;
+    const ctx = chart.ctx;
+    const dataset = chart.data.datasets[0];
+    if (!dataset) return;
+    
+    // Se o dataset principal (índice 0) está oculto, não desenha bolinhas
+    const meta0 = chart.getDatasetMeta(0);
+    if (meta0.hidden) return;
+
+    const vals = dataset.data;
+    const isInverted = opts.inverted || false;
+
+    const indexed = vals.map((v, i) => ({ v, i }))
+      .filter(x => x.v !== null && x.v !== undefined && x.v > 0);
+    if (!indexed.length) return;
+
+    const sorted = [...indexed].sort((a, b) => isInverted ? a.v - b.v : b.v - a.v);
+    const top3 = sorted.slice(0, Math.min(3, sorted.length));
+
+    const meta = chart.getDatasetMeta(0);
+    const chartArea = chart.chartArea;
+    
+    // Limpa e repopula as posições para hit-test
+    chart._recordDotsPositions = [];
+
+    top3.forEach(({ v, i }, rank) => {
+      const point = meta.data[i];
+      if (!point) return;
+      
+      // Guard: não desenha se o ponto está fora da área visível do gráfico
+      if (point.x < chartArea.left || point.x > chartArea.right ||
+          point.y < chartArea.top || point.y > chartArea.bottom) {
+        return;
+      }
+      
+      const x = point.x;
+      const y = point.y;
+      const medal = RECORD_MEDALS[rank];
+
+      // Armazena para o hit-test posterior
+      chart._recordDotsPositions.push({ x, y, rank, index: i });
+
+      ctx.save();
+      ctx.shadowColor = medal.glow;
+      ctx.shadowBlur = 14;
+      ctx.beginPath();
+      ctx.arc(x, y, medal.size + 2, 0, 2 * Math.PI);
+      ctx.fillStyle = medal.glow;
+      ctx.fill();
+      ctx.restore();
+
+      ctx.save();
+      ctx.shadowColor = medal.glow;
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.arc(x, y, medal.size, 0, 2 * Math.PI);
+      ctx.fillStyle = medal.color;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.restore();
+    });
+  }
+};
+
+
+// Métricas que exibem bolinhas de recorde e se são invertidas
+const RECORD_METRICS = { kd: false, kpm: false, kills: false, kpd: true };
+
+function getRecords(matches, metrics) {
+  const records = {};
+  Object.keys(RECORD_METRICS).forEach(m => {
+    if (!metrics.includes(m)) return;
+    const vals = matches.map(r => r[m]).filter(v => v !== undefined && v !== null);
+    if (!vals.length) return;
+    const isInv = RECORD_METRICS[m];
+    records[m] = isInv ? Math.min(...vals) : Math.max(...vals);
+  });
+  return records;
+}
+
+const RECORD_METRIC_LABELS = { kd: 'K/D', kpm: 'KPM', kills: 'Kills', kpd: 'KPD' };
+let _recordToastTimer = null;
+
+function checkNewRecords(prev, curr) {
+  const newRecords = [];
+  Object.keys(RECORD_METRIC_LABELS).forEach(m => {
+    if (curr[m] === undefined) return;
+    // Se não havia recorde anterior, é a primeira partida — sem toast
+    if (prev[m] === undefined) return;
+    const isInv = RECORD_METRICS[m];
+    const isNew = isInv ? curr[m] < prev[m] : curr[m] > prev[m];
+    if (isNew) newRecords.push({ m, val: curr[m] });
+  });
+  if (!newRecords.length) return;
+  // Pega o mais importante (primeiro da lista)
+  const best = newRecords[0];
+  const label = RECORD_METRIC_LABELS[best.m];
+  const rank = 0; // sempre é novo #1
+  clearTimeout(_recordToastTimer);
+  _recordToastTimer = setTimeout(() => {
+    showRecordToast(`🏆 Novo recorde de ${label}: ${best.val}`, RECORD_MEDALS[rank].cls);
+  }, 2600);
+}
+
+function showRecordToast(msg, cls) {
+  const t = document.getElementById('toast');
+  t.className = cls || '';
+  t.textContent = msg;
+  t.style.display = 'block';
+  clearTimeout(t._rtimer);
+  t._rtimer = setTimeout(() => { t.style.display = 'none'; t.className = ''; }, 3200);
+}
+
+/* ============================================================
+   FUNÇÕES UTILITÁRIAS
+   Funções pequenas que fazem uma tarefa só e não renderizam
+   nada na tela. São chamadas por outras funções.
+   Ex: cálculo de média móvel, leitura de perfil, salvar
+   estado, exportar, importar, toast, salvar meta.
+   ============================================================ */
+function movingAverage(values, period) {
+  const result = [];
+  for (let i = 0; i < values.length; i++) {
+    const start = Math.max(0, i - period + 1);
+    const slice = values.slice(start, i + 1);
+    const avg = slice.reduce((a, b) => a + b, 0) / slice.length;
+    result.push(+(avg).toFixed(2));
+  }
+  return result;
+}
+
+function getProfile(id) { return state.profiles.find(p => p.id === (id || activeProfileId)) || null; }
+function getActiveProfile() { return getProfile(activeProfileId); }
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(getStorageKey());
+    if (!raw) return buildDefaultState();
+
+    const parsed = JSON.parse(raw);
+
+    // Validação 1: estrutura raiz
+    if (!parsed || !Array.isArray(parsed.profiles)) {
+      console.warn("loadState: estrutura raiz inválida. Resetando.");
+      return buildDefaultState();
+    }
+
+    if (parsed.activeProfileId !== null && typeof parsed.activeProfileId !== 'string') {
+      console.warn("loadState: activeProfileId inválido. Resetando.");
+      return buildDefaultState();
+    }
+
+    // Validação 2: cada perfil individualmente
+    for (const p of parsed.profiles) {
+      if (!p || typeof p.id !== 'string' || !p.id) {
+        console.warn("loadState: perfil sem id válido. Resetando.", p);
+        return buildDefaultState();
+      }
+      if (typeof p.game !== 'string' || !p.game) {
+        console.warn("loadState: perfil sem game válido. Resetando.", p.id);
+        return buildDefaultState();
+      }
+      if (!Array.isArray(p.metrics)) {
+        console.warn("loadState: perfil sem metrics válido. Resetando.", p.id);
+        return buildDefaultState();
+      }
+      if (!Array.isArray(p.maps)) {
+        console.warn("loadState: perfil sem maps válido. Resetando.", p.id);
+        return buildDefaultState();
+      }
+      if (!Array.isArray(p.matches)) {
+        console.warn("loadState: perfil sem matches válido. Resetando.", p.id);
+        return buildDefaultState();
+      }
+
+      // Validação 3: cada partida individualmente
+      for (const m of p.matches) {
+        if (!m || typeof m.map !== 'string') {
+          console.warn("loadState: partida com map inválido no perfil", p.id, m);
+          return buildDefaultState();
+        }
+      }
+    }
+
+    // Normaliza ordenação cronológica e match_number
+    for (const p of parsed.profiles) {
+      normalizeProfileMatches(p);
+    }
+    if (parsed.profiles.some(p => p.matches.length > 0)) {
+      localStorage.setItem(getStorageKey(), JSON.stringify(parsed));
+    }
+
+    return parsed;
+
+  } catch (e) {
+    console.warn("loadState: erro ao ler localStorage. Resetando.", e);
+    return buildDefaultState();
+  }
+}
+function saveState() { localStorage.setItem(getStorageKey(), JSON.stringify(state)); }
+
+function buildDefaultState() {
+  return {
+    activeProfileId: null,
+    profiles: []
+  };
+}
+
+function buildMatch(values, metrics, profile) {
+  const m = { map: values.map || "", notes: values.notes || "" };
+  const k = parseFloat(values.kills) || 0;
+  const d = parseFloat(values.deaths) || 0;
+  const t = parseFloat(values.time) || 0;
+  if (metrics.includes("kills"))    m.kills    = k;
+  if (metrics.includes("deaths"))   m.deaths   = d;
+  if (metrics.includes("time"))     m.time     = t;
+  if (metrics.includes("points"))   m.points   = parseFloat(values.points) || 0;
+  if (metrics.includes("damage"))   m.damage   = parseFloat(values.damage) || 0;
+  if (metrics.includes("assists"))  m.assists  = parseFloat(values.assists) || 0;
+  if (metrics.includes("position")) m.position = parseFloat(values.position) || 0;
+  if (metrics.includes("kd"))       m.kd       = d > 0 ? +(k/d).toFixed(2) : k;
+  if (metrics.includes("kpm"))      m.kpm      = t > 0 ? +(k/t).toFixed(2) : 0;
+  if (metrics.includes("kpd"))      m.kpd      = t > 0 ? +(d/t).toFixed(2) : 0;
+  
+  // CORREÇÃO: match_number baseado no array ordenado por data
+  const existingMatches = profile ? profile.matches : [];
+  
+  // Ordenar temporariamente para calcular o número correto
+  const sortedForCalc = [...existingMatches].sort((a, b) => {
+    const dateA = a.match_date ? new Date(a.match_date).getTime() : 0;
+    const dateB = b.match_date ? new Date(b.match_date).getTime() : 0;
+    return dateA - dateB;
+  });
+  
+  const maxNum = sortedForCalc.reduce((max, match) => {
+    const num = parseInt(match.match_number);
+    return !isNaN(num) && num > max ? num : max;
+  }, 0);
+  m.match_number = maxNum + 1;
+  
+  // match_date da partida em UTC real — formatDate/toLocalDate/toLocalTime convertem para local
+  m.match_date = new Date().toISOString();
+  
+  return m;
+}
+
+function normalizeProfileMatches(profile) {
+  if (!profile || !Array.isArray(profile.matches) || profile.matches.length === 0) return;
+  
+  // Ordena por match_date (mais antiga primeiro). Partidas sem data vão para o final.
+  profile.matches.sort((a, b) => {
+    const timeA = a.match_date ? new Date(a.match_date).getTime() : Infinity;
+    const timeB = b.match_date ? new Date(b.match_date).getTime() : Infinity;
+    return timeA - timeB;
+  });
+  
+  // Reatribui match_number sequencial baseado na ordem cronológica
+  profile.matches.forEach((m, idx) => {
+    m.match_number = idx + 1;
+  });
+}
+
+function invalidateCloudId(profileId) {
+  const profile = getProfile(profileId);
+  if (profile) {
+    console.warn(`[SYNC] Invalidando cloudId do perfil ${profile.game} (${profile.id})`);
+    delete profile.cloudId;
+    saveState();
+  }
+}
+
+function profileLabel(p) { return [p.game, p.mode, p.server].filter(Boolean).join(" · "); }
+
+function saveGoal(key, val) {
+  const v = parseFloat(val);
+  if (!isNaN(v) && v > 0) {
+    localStorage.setItem(key, v);
+    showToast(`✓ Meta definida: ${v}`);
+  } else {
+    localStorage.removeItem(key);
+    showToast(`✓ Meta removida`);
+  }
+  updateKpiProgress(key, isNaN(v) ? 0 : v);
+  const parts = key.replace("goal_", "").split("_");
+  const profileId = parts[parts.length - 1];
+  const metricId = parts.slice(0, parts.length - 1).join("_");
+  syncToCloud("upsert_goal", { profileId, metricId, value: isNaN(v) ? 0 : v });
+}
+
+function updateKpiProgress(goalKey, goalVal) {
+  const kpi = document.querySelector(`[data-goal-key="${goalKey}"]`);
+  if (!kpi) return;
+  const profile = getActiveProfile();
+  if (!profile) return;
+  const parts = goalKey.replace("goal_", "").split("_");
+  const metricId = parts.slice(0, parts.length - 1).join("_");
+  const vals = profile.matches.map(r => r[metricId]).filter(v => v !== undefined);
+  if (!vals.length) return;
+  const last30 = vals.slice(-30);
+  const avg30 = +(last30.reduce((a,b) => a+b, 0) / last30.length).toFixed(2);
+  let progressDiv = kpi.querySelector('.kpi-progress');
+  if (!goalVal || goalVal <= 0) {
+    if (progressDiv) progressDiv.remove();
+    return;
+  }
+  const diff = +(avg30 - goalVal).toFixed(2);
+  const isInverted = goalKey.includes('kpd');
+  let progressClass = 'on-target';
+  let progressText = 'na meta';
+  if (diff > 0) {
+    progressClass = isInverted ? 'above-bad' : 'above';
+    progressText = `+${diff} acima`;
+  } else if (diff < 0) {
+    progressClass = isInverted ? 'below-good' : 'below';
+    progressText = `${diff} abaixo`;
+  }
+  if (!progressDiv) {
+    progressDiv = document.createElement('div');
+    const meta = kpi.querySelector('.kpi-meta');
+    if (meta && meta.parentNode) meta.parentNode.insertBefore(progressDiv, meta.nextSibling);
+  }
+  progressDiv.className = `kpi-progress ${progressClass}`;
+  progressDiv.textContent = progressText;
+}
+
+function handleRecordHover(e) {
+  const chart = charts["evolution"];
+  if (!chart || !chart._recordDotsPositions || !chart._recordDotsPositions.length) {
+    hideRecordTooltip();
+    return;
+  }
+  
+  const canvas = e.target;
+  const rect = canvas.getBoundingClientRect();
+  const mouseX = e.clientX - rect.left;
+  const mouseY = e.clientY - rect.top;
+  
+  let hit = null;
+  for (const dot of chart._recordDotsPositions) {
+    const dx = mouseX - dot.x;
+    const dy = mouseY - dot.y;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    if (dist <= 14) {
+      hit = dot;
+      break;
+    }
+  }
+  
+  if (hit) {
+    const profile = getActiveProfile();
+    const match = profile.matches[hit.index];
+    if (match) {
+      showRecordTooltip(e.clientX, e.clientY, match, hit.rank);
+      canvas.style.cursor = 'pointer';
+      return;
+    }
+  }
+  
+  hideRecordTooltip();
+  canvas.style.cursor = 'default';
+}
+
+function showRecordTooltip(clientX, clientY, match, rank) {
+  const t = document.getElementById('record-tooltip');
+  const medal = RECORD_MEDALS[rank];
+  const profile = getActiveProfile();
+  const metrics = profile.metrics;
+  
+  let html = `<div class="rt-header"><span class="rt-medal">${medal.label.split(' ')[0]}</span><span class="rt-title" style="color:${medal.color}">${medal.rank} — Partida #${match.match_number || match.id}</span></div>`;
+  
+  html += `<div class="rt-row"><span class="rt-label">Mapa</span><span class="rt-val">${match.map || '—'}</span></div>`;
+  
+  if (metrics.includes('kills')) {
+    html += `<div class="rt-row"><span class="rt-label">Kills</span><span class="rt-val" style="color:var(--metric-kills)">${match.kills !== undefined ? match.kills : '—'}</span></div>`;
+  }
+  if (metrics.includes('deaths')) {
+    html += `<div class="rt-row"><span class="rt-label">Deaths</span><span class="rt-val" style="color:var(--metric-deaths)">${match.deaths !== undefined ? match.deaths : '—'}</span></div>`;
+  }
+  if (metrics.includes('time')) {
+    html += `<div class="rt-row"><span class="rt-label">Tempo</span><span class="rt-val">${match.time !== undefined ? match.time + 'min' : '—'}</span></div>`;
+  }
+  if (metrics.includes('kd')) {
+    html += `<div class="rt-row"><span class="rt-label">K/D</span><span class="rt-val" style="color:var(--metric-kd)">${match.kd !== undefined ? match.kd : '—'}</span></div>`;
+  }
+  if (metrics.includes('kpm')) {
+    html += `<div class="rt-row"><span class="rt-label">KPM</span><span class="rt-val" style="color:var(--metric-kpm)">${match.kpm !== undefined ? match.kpm : '—'}</span></div>`;
+  }
+  if (metrics.includes('kpd')) {
+    html += `<div class="rt-row"><span class="rt-label">KPD</span><span class="rt-val" style="color:var(--metric-kpd)">${match.kpd !== undefined ? match.kpd : '—'}</span></div>`;
+  }
+  if (metrics.includes('points')) {
+    html += `<div class="rt-row"><span class="rt-label">Pontos</span><span class="rt-val" style="color:var(--metric-points)">${match.points !== undefined ? match.points : '—'}</span></div>`;
+  }
+  if (metrics.includes('damage')) {
+    html += `<div class="rt-row"><span class="rt-label">Dano</span><span class="rt-val" style="color:var(--metric-damage)">${match.damage !== undefined ? match.damage : '—'}</span></div>`;
+  }
+  if (metrics.includes('assists')) {
+    html += `<div class="rt-row"><span class="rt-label">Assist.</span><span class="rt-val" style="color:var(--metric-assists)">${match.assists !== undefined ? match.assists : '—'}</span></div>`;
+  }
+  if (metrics.includes('position')) {
+    html += `<div class="rt-row"><span class="rt-label">Posição</span><span class="rt-val" style="color:var(--metric-position)">${match.position !== undefined ? match.position : '—'}</span></div>`;
+  }
+  
+  if (match.notes) {
+    html += `<div class="rt-notes">${match.notes.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`;
+  }
+  
+  t.innerHTML = html;
+  t.style.display = 'block';
+  
+  const offsetX = 16;
+  const offsetY = 16;
+  let left = clientX + offsetX;
+  let top = clientY + offsetY;
+  
+  const tRect = t.getBoundingClientRect();
+  if (left + tRect.width > window.innerWidth) {
+    left = clientX - tRect.width - offsetX;
+  }
+  if (top + tRect.height > window.innerHeight) {
+    top = clientY - tRect.height - offsetY;
+  }
+  
+  t.style.left = left + 'px';
+  t.style.top = top + 'px';
+}
+
+function hideRecordTooltip() {
+  const t = document.getElementById('record-tooltip');
+  if (t) t.style.display = 'none';
+  const canvas = document.getElementById('ch-evolution');
+  if (canvas) canvas.style.cursor = 'default';
+}
+
+
+/* ============================================================
+   NAVEGAÇÃO E CONTROLE DE ABAS
+   Funções que controlam qual aba/painel está visível e
+   reagem a troca de perfil.
+   ============================================================ */
+
+function formatDate(isoString) {
+  if (!isoString) return '—';
+  const d = new Date(isoString);
+  if (isNaN(d.getTime())) return '—';
+  const pad = n => String(n).padStart(2, '0');
+  return `${pad(d.getHours())}:${pad(d.getMinutes())} ${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()}`;
+}
+
+function toLocalDate(isoString) {
+  if (!isoString) return '';
+  const d = new Date(isoString);
+  if (isNaN(d.getTime())) return '';
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+}
+
+function toLocalTime(isoString) {
+  if (!isoString) return '';
+  const d = new Date(isoString);
+  if (isNaN(d.getTime())) return '';
+  const pad = n => String(n).padStart(2, '0');
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function renderProfileSelector() {
+  const sel = document.getElementById("profileSelect");
+  if (!state.profiles.length) {
+    sel.innerHTML = `<option value="">— Selecione um perfil —</option>`;
+    return;
+  }
+  sel.innerHTML = state.profiles.map(p =>
+    `<option value="${p.id}"${p.id===activeProfileId?" selected":""}>${profileLabel(p)}</option>`
+  ).join("");
+}
+
+function switchProfile(id) {
+  if (!id) return;
+  activeProfileId = id; state.activeProfileId = id; saveState(); editingMatchId = null; refreshAll();
+}
+
+function setTab(name) {
+  document.querySelectorAll(".pane").forEach(p => p.classList.remove("active"));
+  document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+  document.getElementById("pane-" + name).classList.add("active");
+  const navTabs = ["dashboard","log","profiles"];
+  const idx = navTabs.indexOf(name);
+  if (idx >= 0) {
+    document.querySelectorAll(".tab-btn")[idx].classList.add("active");
+  }
+  const fab = document.getElementById("fab-nova-partida");
+  if (fab) fab.style.display = name === "add" ? "none" : "flex";
+  if (name === "dashboard") renderDashboard();
+  if (name === "log")       renderLog();
+  if (name === "add")       renderAddForm();
+  if (name === "profiles")  renderProfilesPane();
+}
+
+function refreshAll() {
+  renderProfileSelector();
+  const active = document.querySelector(".tab-btn.active");
+  const navTabs = ["dashboard","log","profiles"];
+  const idx = [...document.querySelectorAll(".tab-btn")].indexOf(active);
+  if (idx >= 0) setTab(navTabs[idx]); else setTab("dashboard");
+}
+
+/* ============================================================
+   RENDERIZAÇÃO — DASHBOARD
+   Monta os KPIs, gráfico de evolução, gráfico de barras
+   por mapa e tabela de mapas. Tudo que aparece na aba
+   "Dashboard".
+   ============================================================ */
+
+function computeMapAgg(matches, viewMode) {
+  const mapGroups = {};
+  matches.forEach(r => {
+    if (!mapGroups[r.map]) mapGroups[r.map] = [];
+    mapGroups[r.map].push(r);
+  });
+  const mapAgg = {};
+  Object.entries(mapGroups).forEach(([mapName, mapMatches]) => {
+    const sample = viewMode === 'total' ? mapMatches : mapMatches.slice(-30);
+    const games = sample.length;
+    const kills = sample.reduce((a, r) => a + (r.kills || 0), 0);
+    const deaths = sample.reduce((a, r) => a + (r.deaths || 0), 0);
+    const time = sample.reduce((a, r) => a + (r.time || 0), 0);
+    mapAgg[mapName] = {
+      games,
+      kd: deaths > 0 ? +(kills / deaths).toFixed(2) : (kills > 0 ? kills : 0),
+      kpm: time > 0 ? +(kills / time).toFixed(2) : 0,
+      kpd: time > 0 ? +(deaths / time).toFixed(2) : 0,
+    };
+  });
+  return mapAgg;
+}
+
+function buildMapTableHeadHtml(mapArr) {
+  function sortIcon(c) { if (mapSort.col !== c) return ''; return mapSort.dir === 'desc' ? ' ▼' : ' ▲'; }
+  const partidasLabel = mapViewMode === 'total' ? 'Partidas' : 'Partidas (30)';
+  return `<thead><tr><th class="map-col-map">Mapa</th><th class="map-col-partidas" style="cursor:pointer" onclick="sortMapTable('games')">${partidasLabel}${sortIcon('games')}</th><th class="map-col-kd" style="cursor:pointer" onclick="sortMapTable('kd')">K/D${sortIcon('kd')}</th><th class="map-col-kpm" style="cursor:pointer" onclick="sortMapTable('kpm')">KPM${sortIcon('kpm')}</th><th class="map-col-kpd" style="cursor:pointer" onclick="sortMapTable('kpd')">KPD${sortIcon('kpd')}</th></tr></thead><tbody>${mapArr.map(m => `<tr><td class="map-col-map"><span class="map-name">${m.map}</span></td><td class="num map-col-partidas">${m.games}</td><td class="num map-col-kd" style="color:var(--metric-kd)">${m.kd}</td><td class="num map-col-kpm" style="color:var(--metric-kpm)">${m.kpm}</td><td class="num map-col-kpd" style="color:var(--metric-kpd)">${m.kpd}</td></tr>`).join("")}</tbody>`;
+}
+
+function buildMapPerformanceCardHtml(titleClass, canvasHeight) {
+  return `<div class="card">
+    <div class="map-card-title">
+      <div class="map-card-title-left">
+        <div class="card-title ${titleClass}" style="margin-bottom:0;">Performance por Mapa</div>
+        <button class="map-view-tab-btn active" onclick="toggleMapViewMode()">${mapViewMode === 'total' ? 'Total' : 'Recente'}</button>
+        <div class="map-help">
+          <span>?</span>
+          <div class="map-help-tooltip">
+            <strong>Recente</strong> mostra K/D, KPM e KPD calculados só com as 30 partidas mais recentes de cada mapa — reflete sua forma atual.<br><br>
+            <strong>Total</strong> mostra esses mesmos números calculados com o histórico completo de cada mapa — reflete sua trajetória inteira.<br><br>
+            A contagem de partidas muda junto: "Recente" trava em 30, "Total" mostra o total real. Clique no botão ao lado do título para alternar entre os dois.
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="map-tabs">
+      <button class="map-tab-btn ${mapSort.col==='kd'?'active metric-kd':''}" onclick="sortMapTable('kd')">K/D</button>
+      <button class="map-tab-btn ${mapSort.col==='kpm'?'active metric-kpm':''}" onclick="sortMapTable('kpm')">KPM</button>
+      <button class="map-tab-btn ${mapSort.col==='kpd'?'active metric-kpd':''}" onclick="sortMapTable('kpd')">KPD</button>
+    </div>
+    <canvas id="ch-mapbars" height="${canvasHeight}"></canvas>
+    <button class="map-toggle" onclick="toggleMapTable()">${mapTableVisible ? '▾ Ocultar dados' : '▸ Mostrar dados'}</button>
+    <div id="mapTableWrap" style="overflow-x:auto;${mapTableVisible ? '' : 'display:none;'}"><table class="map-table" id="mapTableHead"></table></div>
+  </div>`;
+}
+
+function renderDashboard() {
+  const profile = getActiveProfile();
+  const inner = document.getElementById("dash-inner");
+  if (!profile) {
+    inner.innerHTML = `
+      <div class="onboarding">
+        <div class="onboarding-hero">
+          <h1>Registre. Análise. <em>Evolua.</em></h1>
+          <p>Acompanhe sua performance em jogos de tiro. Veja estatísticas por mapa, metas de K/D, KPM e sua evolução ao longo do tempo.</p>
+          <button class="onboarding-cta" onclick="openModal('new')">Criar primeiro perfil</button>
+          <div class="onboarding-note">Gratuito. Seus dados ficam salvos no navegador.</div>
+        </div>
+        <div class="onboarding-steps">
+          <div class="step-card">
+            <div class="step-number">1</div>
+            <h3>Crie um perfil</h3>
+            <p>Escolha o jogo, modo de jogo e os mapas que você joga regularmente.</p>
+          </div>
+          <div class="step-card">
+            <div class="step-number">2</div>
+            <h3>Registre partidas</h3>
+            <p>Após cada partida, adicione kills, deaths, tempo e outras métricas.</p>
+          </div>
+          <div class="step-card">
+            <div class="step-number">3</div>
+            <h3>Veja estatísticas</h3>
+            <p>Gráficos de evolução, performance por mapa, médias móveis e metas.</p>
+          </div>
+        </div>
+      </div>`;
+    return;
+  }
+  const metrics = profile.metrics;
+  const matches = profile.matches;
+  if (!matches.length) {
+    inner.innerHTML = `
+      <div class="onboarding" style="padding:32px 20px;">
+        <div class="onboarding-hero" style="margin-bottom:32px;">
+          <h1 style="font-size:24px;">Perfil criado com sucesso!</h1>
+          <p>Seu perfil <strong>${profile.game}${profile.mode ? ' · ' + profile.mode : ''}</strong> está pronto. Registre sua primeira partida para começar a ver estatísticas.</p>
+          <button class="onboarding-cta" onclick="setTab('add')">→ Registrar primeira partida</button>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);padding:24px;opacity:0.4;pointer-events:none;">
+          <div class="card-title brand" style="margin-bottom:16px;">Preview do seu dashboard</div>
+          <div style="height:180px;background:repeating-linear-gradient(0deg,transparent,transparent 19px,var(--border) 20px);border:1px dashed var(--border);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px;">
+            Gráfico de evolução aparecerá aqui após 2+ partidas
+          </div>
+        </div>
+      </div>`;
+    return;
+  }
+  const PRIORITY_ORDER = ["kd","kpm","kpd","kills","deaths","points","damage","assists","position"];
+  const chartable = PRIORITY_ORDER.filter(m => metrics.includes(m) && CHARTABLE.includes(m));
+  let html = "";
+  
+  const kpiData = [];
+  metrics.forEach((mid) => {
+    const meta = METRIC_MAP[mid]; if (!meta) return;
+    const vals = matches.map(r => r[mid]).filter(v => v !== undefined);
+    if (!vals.length) return;
+    const total = vals.reduce((a,b) => a+b, 0);
+    const avg = +(total / vals.length).toFixed(2);
+    const color = mid;
+    if (["kills","deaths"].includes(mid)) {
+      return;
+    } else if (["points","damage","assists"].includes(mid)) {
+      const slice = kpiViewMode === 'total' ? vals : vals.slice(-30);
+      const avg30 = +(slice.reduce((a,b) => a+b, 0) / slice.length).toFixed(2);
+      const min30 = +Math.min(...slice).toFixed(2);
+      const max30 = +Math.max(...slice).toFixed(2);
+      const n = slice.length;
+      const label30 = kpiViewMode === 'total' ? `Média ${meta.label} (total)` : (n < 30 ? `Média ${meta.label} (${n} partidas)` : `Média ${meta.label} (últimas 30)`);
+      const goalKey = `goal_${mid}_${activeProfileId}`;
+      const goalVal = localStorage.getItem(goalKey) || "";
+      kpiData.push({ label: label30, val: avg30, color, min: min30, max: max30, goalKey, goalVal });
+    } else if (["kd","kpm","kpd"].includes(mid)) {
+      const slice = kpiViewMode === 'total' ? vals : vals.slice(-30);
+      const avg30 = +(slice.reduce((a,b) => a+b, 0) / slice.length).toFixed(2);
+      const min30 = +Math.min(...slice).toFixed(2);
+      const max30 = +Math.max(...slice).toFixed(2);
+      const n = slice.length;
+      const label30 = kpiViewMode === 'total' ? `Média ${meta.label} (total)` : (n < 30 ? `Média ${meta.label} (${n} partidas)` : `Média ${meta.label} (últimas 30)`);
+      const goalKey = `goal_${mid}_${activeProfileId}`;
+      const goalVal = localStorage.getItem(goalKey) || "";
+      kpiData.push({ label: label30, val: avg30, color: `metric-${mid}`, min: min30, max: max30, goalKey, goalVal });
+    } else if (mid === "time") {
+      return;
+    } else if (mid === "position") {
+      const slice = kpiViewMode === 'total' ? vals : vals.slice(-30);
+      const avg30 = +(slice.reduce((a,b) => a+b, 0) / slice.length).toFixed(2);
+      const min30 = +Math.min(...slice).toFixed(2);
+      const max30 = +Math.max(...slice).toFixed(2);
+      const n = slice.length;
+      const label30 = kpiViewMode === 'total' ? `Média ${meta.label} (total)` : (n < 30 ? `Média ${meta.label} (${n} partidas)` : `Média ${meta.label} (últimas 30)`);
+      const goalKey = `goal_${mid}_${activeProfileId}`;
+      const goalVal = localStorage.getItem(goalKey) || "";
+      kpiData.push({ label: label30, val: avg30, color, min: min30, max: max30, goalKey, goalVal });
+    }
+  });
+
+  html += `<div class="card"><div class="map-card-title"><div class="map-card-title-left"><div class="card-title brand" style="margin-bottom:0;">Quadro de Desempenho</div><button class="map-view-tab-btn active" onclick="toggleKpiViewMode()">${kpiViewMode === 'total' ? 'Total' : 'Recente'}</button></div></div>`;
+  html += `<div class="kpi-grid">${kpiData.map(k => {
+    const hasRange = k.min !== undefined && k.max !== undefined;
+    const rangeHtml = hasRange ? `<div class="kpi-range"><span class="kpi-min">${k.min}</span><span class="kpi-max">${k.max}</span></div>` : '';
+    const subHtml = k.sub ? `<div class="kpi-sub">${k.sub}</div>` : '';
+    const colorVar = k.color === 'confirm' ? 'confirm' : k.color;
+    let progressHtml = '';
+    if (k.goalKey && k.goalVal) {
+      const goal = parseFloat(k.goalVal);
+      const diff = +(k.val - goal).toFixed(2);
+      const isInverted = k.goalKey.includes('kpd');
+      let progressClass = 'on-target';
+      let progressText = 'na meta';
+      if (diff > 0) {
+        progressClass = isInverted ? 'above-bad' : 'above';
+        progressText = `+${diff} acima`;
+      } else if (diff < 0) {
+        progressClass = isInverted ? 'below-good' : 'below';
+        progressText = `${diff} abaixo`;
+      }
+      progressHtml = `<div class="kpi-progress ${progressClass}">${progressText}</div>`;
+    }
+    const helpKey = k.goalKey ? k.goalKey.replace(`_${activeProfileId}`, '').replace('goal_', '') : null;
+    const metaHtml = k.goalKey ? `<div class="kpi-meta"><span class="kpi-meta-label ${k.color}">Meta ${METRIC_MAP[helpKey]?.label || ''}</span><input class="kpi-goal-inline ${k.color}" type="number" value="${k.goalVal}" placeholder="—" step="0.01" onblur="saveGoal('${k.goalKey}',this.value)" onkeydown="if(event.key==='Enter')this.blur()"></div>${progressHtml}` : '';
+    const helpHtml = helpKey ? `<div class="kpi-header"><div class="kpi-help"><span>?</span><div class="kpi-tooltip">${KPI_HELP[helpKey]}</div></div></div>` : '';
+        return `<div class="kpi ${colorVar}" data-goal-key="${k.goalKey||''}">${helpHtml}${metaHtml}<div class="kpi-main"><div class="kpi-label">${k.label}</div><div class="kpi-val ${colorVar}">${k.val}</div></div>${rangeHtml}${subHtml}</div>`;
+
+  }).join("")}</div>`;
+  html += `</div>`;
+
+  if (!chartable.length) {
+    html += `<div class="no-chart">⚠ Nenhuma métrica permite gráfico.<br><small>Ative métricas como K/D, KPM ou Kills no perfil.</small></div>`;
+
+  } else {
+    const evoMetrics = chartable.filter(m => ["kd","kpm","kpd","kills"].includes(m));
+    const evoClasses = { kd: "metric-kd", kpm: "metric-kpm", kpd: "metric-kpd", kills: "metric-kills" };
+    const evoLabels = { kd: "K/D", kpm: "KPM", kpd: "KPD", kills: "Kills" };
+    const recordBtnClass = recordDotsVisible ? 'active' : '';
+    const recordBtnStyle = recordDotsVisible ? '' : 'style="opacity:0.4;color:var(--muted);border-bottom-color:transparent;"';
+    
+    html += `<div class="card" style="position:relative;">
+      <div id="evolution-indicator" style="position:absolute;top:14px;right:20px;text-align:right;z-index:5;"></div>
+      <div class="map-card-title">
+        <div class="map-card-title-left">
+          <div class="card-title brand" style="margin-bottom:0;">${evolutionViewMode === 'total' ? 'Gráfico de Evolução' : 'Gráfico de Evolução'}</div>
+          <button class="map-view-tab-btn active" onclick="toggleEvolutionViewMode()">${evolutionViewMode === 'total' ? 'Total' : 'Recente'}</button>
+          <div class="map-help">
+            <span>?</span>
+            <div class="map-help-tooltip">
+              <strong>Total</strong> mostra o gráfico com o histórico completo de partidas.<br><br>
+              <strong>Recente</strong> mostra o gráfico apenas com as últimas 30 partidas.<br><br>
+              Clique no botão ao lado do título para alternar entre os dois.
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="map-tabs">`;
+    evoMetrics.forEach(m => {
+      html += `<button class="map-tab-btn ${evolutionTab===m?'active '+evoClasses[m]:''}" onclick="setEvolutionTab('${m}')">${evoLabels[m]}</button>`;
+    });
+    html += `</div><canvas id="ch-evolution" height="200"></canvas></div>`;
+  }
+  
+  const mapsUsed = [...new Set(matches.map(r => r.map))];
+  if (mapsUsed.length > 1 && metrics.includes("kills")) {
+    html += buildMapPerformanceCardHtml('brand', 280);
+  } else if (mapsUsed.length > 1) {
+    html += buildMapPerformanceCardHtml('brand', 200);
+  }
+  
+  inner.innerHTML = html;
+  Object.values(charts).forEach(c => { try { c.destroy(); } catch(e){} });
+  charts = {};
+  if (!chartable.length) return;
+  
+  const GRID = "rgba(30,36,48,0.8)";
+  const TICK = "#4a5568";
+  Chart.defaults.font.family = "Inter";
+  Chart.defaults.color = TICK;
+  
+  const baseOpts = () => ({
+    responsive:true,
+    plugins:{ legend:{labels:{color:TICK,boxWidth:12,font:{size:11}}}, tooltip:{backgroundColor:"#11141b",borderColor:"#1e2430",borderWidth:1} },
+    scales:{ x:{ticks:{color:TICK,font:{size:10}},grid:{color:GRID}}, y:{ticks:{color:TICK,font:{size:10}},grid:{color:GRID}} }
+  });
+  
+    const evoCanvas = document.getElementById("ch-evolution");
+    if (evoCanvas && chartable.includes(evolutionTab)) {
+      const mid = evolutionTab;
+      const evoMatches = evolutionViewMode === 'recent' ? matches.slice(-30) : matches;
+      const labels = evoMatches.map(r => r.match_number);
+      const vals = evoMatches.map(r => r[mid] ?? 0);
+      const hexColor = getComputedStyle(document.documentElement).getPropertyValue(METRIC_COLORS[mid].replace('var(','').replace(')','')).trim() || '#b388ff';
+      const maVals = movingAverage(vals, 10);
+      const maColor = hexColor;
+      const hasRecordDots = mid in RECORD_METRICS;
+      const isInvertedMetric = RECORD_METRICS[mid] || false;
+      charts["evolution"] = new Chart(evoCanvas.getContext("2d"), {
+        type: "line",
+        data: { labels, datasets: [
+          { label: METRIC_MAP[mid].label, data: vals, borderColor: hexColor, backgroundColor: hexColor + "0d", borderWidth: 1.5, pointRadius: 1, pointHoverRadius: 4, tension: 0.3, fill: true, order: 2 },
+          { label: "Média Móvel (10)", data: maVals, borderColor: maColor, backgroundColor: "transparent", borderWidth: 3, pointRadius: 0, pointHoverRadius: 0, tension: 0.4, borderDash: [6, 4], fill: false, order: 1 }
+        ]},
+        plugins: [recordDotsPlugin],
+        options: {
+          ...baseOpts(),
+          interaction: { mode: "index", intersect: false },
+          plugins: {
+            ...baseOpts().plugins,
+            legend: {
+              labels: {
+                boxWidth: 16,
+                boxHeight: 16,
+                generateLabels: function(chart) {
+                  const original = Chart.defaults.plugins.legend.labels.generateLabels(chart);
+                  if (chart._hasRecordDots) {
+                    original.push({
+                      text: '🏆 Recordes',
+                      fillStyle: chart._recordDotsVisible ? chart._hexColor : 'transparent',
+                      strokeStyle: chart._recordDotsVisible ? chart._hexColor : '#4a5568',
+                      lineWidth: 2,
+                      hidden: !chart._recordDotsVisible,
+                      datasetIndex: 99
+                    });
+                  }
+                  return original;
+                }
+              },
+              onClick: function(e, legendItem, legend) {
+                if (legendItem.datasetIndex === 99) {
+                  toggleRecordDots();
+                  return;
+                }
+                const index = legendItem.datasetIndex;
+                const ci = legend.chart;
+                if (ci.isDatasetVisible(index)) {
+                  ci.hide(index);
+                  legendItem.hidden = true;
+                } else {
+                  ci.show(index);
+                  legendItem.hidden = false;
+                }
+              }
+            },
+            recordDots: { enabled: hasRecordDots && recordDotsVisible, inverted: isInvertedMetric }
+          },
+          scales: {
+            x: { ticks: { color: TICK, font: { size: 10 } }, grid: { color: GRID } },
+            y: { ticks: { color: TICK, font: { size: 10 } }, grid: { color: GRID }, suggestedMax: Math.max(...vals.filter(v => v > 0).sort((a, b) => a - b).slice(0, Math.ceil(vals.length * 0.95))) || 5 }
+          }
+        }
+      });
+      charts["evolution"]._hasRecordDots = hasRecordDots;
+      charts["evolution"]._hexColor = hexColor;
+      charts["evolution"]._recordDotsVisible = recordDotsVisible;
+      charts["evolution"]._matchesUsed = evoMatches;
+
+      // Eventos de hover para tooltip de recorde
+      if (!evoCanvas._recordHoverAttached) {
+        evoCanvas.addEventListener('mousemove', handleRecordHover);
+        evoCanvas.addEventListener('mouseleave', hideRecordTooltip);
+        evoCanvas._recordHoverAttached = true;
+      }
+
+      refreshEvolutionIndicator();
+    }
+  
+  const mapCtx = document.getElementById("ch-mapbars");
+  if (mapCtx) {
+    const mapAgg = computeMapAgg(matches, mapViewMode);
+    const sortCol = mapSort.col;
+    const mapArr = Object.entries(mapAgg).map(([map, s]) => ({ map, games: s.games, kd: s.kd, kpm: s.kpm, kpd: s.kpd }));
+    mapArr.sort((a, b) => {
+      const valA = a[sortCol];
+      const valB = b[sortCol];
+      return mapSort.dir === 'desc' ? valB - valA : valA - valB;
+    });
+    
+    const vals = mapArr.map(m => m[sortCol]);
+    const sortColor = METRIC_COLORS[sortCol] || 'var(--brand)';
+    const sortHex = getComputedStyle(document.documentElement).getPropertyValue(sortColor.replace('var(','').replace(')','')).trim() || '#00e5ff';
+    const partidasLabel = mapViewMode === 'total' ? 'Partidas' : 'Partidas (30)';
+    
+    charts["mapbars"] = new Chart(mapCtx.getContext("2d"), {
+      type: "bar",
+      data: {
+        labels: mapArr.map(m => m.map),
+        datasets: [{
+          label: sortCol === 'games' ? partidasLabel : (METRIC_MAP[sortCol]?.label || sortCol.toUpperCase()),
+          data: vals,
+          backgroundColor: mapArr.map(() => sortHex + "d9"),
+          borderColor: mapArr.map(() => sortHex),
+          borderWidth: 1,
+          borderRadius: 3,
+          barPercentage: 0.65,
+        }]
+      },
+      plugins: [ChartDataLabels],
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          datalabels: {
+            color: sortHex,
+            font: { family: 'Rajdhani', size: 13, weight: '700' },
+            anchor: 'end',
+            align: 'top',
+            offset: 4,
+            formatter: function(value) { return value; }
+          },
+          tooltip: {
+            backgroundColor: "#11141b",
+            borderColor: "#1e2430",
+            borderWidth: 1,
+            callbacks: {
+              label: function(context) {
+                const idx = context.dataIndex;
+                const chart = context.chart;
+                const currentMapArr = chart._mapArr;
+                const currentSortCol = chart._sortCol;
+                const currentViewMode = chart._viewMode;
+                const m = currentMapArr[idx];
+                const label = currentViewMode === 'total' ? 'Partidas' : 'Partidas (últimas 30)';
+                const primaryLabel = currentSortCol === 'games' ? label : (METRIC_MAP[currentSortCol]?.label || currentSortCol.toUpperCase());
+                const lines = [`${primaryLabel}: ${m[currentSortCol]}`, `K/D: ${m.kd}`, `KPM: ${m.kpm}`, `KPD: ${m.kpd}`];
+                if (currentSortCol !== 'games') lines.push(`${label}: ${m.games}`);
+                return lines;
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            ticks: { color: TICK, font: { family: 'Rajdhani', size: 11 } },
+            grid: { color: GRID }
+          },
+          y: {
+            ticks: { color: TICK, font: { size: 10 } },
+            grid: { color: GRID },
+            beginAtZero: true,
+            suggestedMax: Math.max(...vals) * 1.12
+          }
+        }
+      }
+    });
+    charts["mapbars"]._mapArr = mapArr;
+    charts["mapbars"]._sortCol = sortCol;
+    charts["mapbars"]._viewMode = mapViewMode;
+    
+    const mapTableHead = document.getElementById("mapTableHead");
+    if (mapTableHead) mapTableHead.innerHTML = buildMapTableHeadHtml(mapArr);
+  }
+}
+
+/* ============================================================
+   RENDERIZAÇÃO — HISTÓRICO
+   Monta a tabela de partidas com filtro por mapa,
+   e a linha de edição inline quando o usuário clica em ✎.
+   ============================================================ */
+function renderLog() {
+  const profile = getActiveProfile();
+  if (!profile) {
+    document.getElementById("logCount").textContent = "0 partidas";
+    document.getElementById("logHead").innerHTML = "";
+    document.getElementById("logBody").innerHTML = `<tr><td colspan="99" style="text-align:center;padding:32px 20px;color:var(--sub);"><div class="e-icon" style="font-size:36px;margin-bottom:12px;">📋</div><div class="e-title" style="font-family:'Rajdhani',sans-serif;font-size:18px;color:var(--text);margin-bottom:6px;">Nenhum perfil ativo</div><div class="e-sub" style="font-size:13px;">Crie um perfil para visualizar o histórico de partidas</div></td></tr>`;
+    return;
+  }
+  const metrics = profile.metrics;
+  const inputMetrics = metrics.filter(m => METRIC_MAP[m]?.type === "input");
+  const calcMetrics = metrics.filter(m => METRIC_MAP[m]?.type === "calc");
+  const sel = document.getElementById("filterMap");
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">Todos</option>' + profile.maps.map(m => `<option value="${m}"${m===cur?" selected":""}>${m}</option>`).join("");
+  const filter = sel.value;
+  const filtered = filter ? profile.matches.filter(r => r.map === filter) : profile.matches;
+  document.getElementById("logCount").textContent = `${filtered.length} partidas`;
+  document.getElementById("logHead").innerHTML = `<th>#</th><th>Hora / Data</th>` + ["map",...inputMetrics,...calcMetrics].map(c => `<th>${c==="map"?"Mapa":METRIC_MAP[c]?.label||c}</th>`).join("") + `<th>Notas</th><th></th>`;
+
+const sortedFiltered = [...filtered].sort((a, b) => {
+  const timeA = a.match_date ? new Date(a.match_date).getTime() : 0;
+  const timeB = b.match_date ? new Date(b.match_date).getTime() : 0;
+  return timeB - timeA; // mais recente primeiro
+});
+document.getElementById("logBody").innerHTML = sortedFiltered.map((r, idx) => {
+    if (editingMatchId === r.id) return buildEditRow(r, profile);
+    const notesIcon = r.notes ? `<span title="${r.notes.replace(/"/g, '&quot;')}" style="cursor:help;color:var(--brand);font-size:14px;">📝</span>` : `<span style="color:var(--muted);font-size:14px;opacity:0.3;">📝</span>`;
+    return `<tr><td class="r-num" style="color:var(--sub);font-size:12px">#${r.match_number || (filtered.length - idx)}</td><td style="font-size:12px;color:var(--sub);white-space:nowrap">${formatDate(r.match_date)}</td><td style="font-family:'Rajdhani',sans-serif;font-weight:600">${r.map}</td>${inputMetrics.filter(m=>m!=="map").map(m => { const val=r[m]; let style="font-family:'Rajdhani',sans-serif;"; const colorVar=METRIC_COLORS[m]; if(colorVar)style+=`color:${colorVar};`; return `<td style="${style}">${val!==undefined?(m==="time"?val+"min":val):"—"}</td>`; }).join("")}${calcMetrics.map(m => `<td class="r-num" style="color:${METRIC_COLORS[m]||'var(--sub)'}">${r[m]!==undefined?r[m]:"—"}</td>`).join("")}<td style="text-align:center;">${notesIcon}</td><td><button class="action-btn" onclick="startEditMatch('${r.id}')">✎</button><button class="action-btn" onclick="duplicateMatch('${r.id}')">⧉</button><button class="action-btn del" onclick="deleteMatch('${r.id}')">✕</button></td></tr>`;  }).join("");
+}
+
+function buildEditRow(r, profile) {
+  const inputMetrics = profile.metrics.filter(m => METRIC_MAP[m]?.type === "input");
+  const calcMetrics = profile.metrics.filter(m => METRIC_MAP[m]?.type === "calc");
+  return `<tr style="background:#0d1017">
+    <td class="r-num" style="color:var(--sub);font-size:12px">#${r.match_number || r.id}</td>
+    
+    <!-- HORA / DATA   (agora na 2ª coluna, igual ao modo visualização) -->
+    <td style="white-space:nowrap;">
+      <input class="edit-input" type="date" id="edit-date" value="${toLocalDate(r.match_date)}" style="width:110px!important;font-size:12px;display:inline-block;">
+      <input class="edit-input" type="time" id="edit-daytime" value="${toLocalTime(r.match_date)}" style="width:75px!important;font-size:12px;display:inline-block;">
+    </td>
+    
+    <!-- MAPA (agora na 3ª coluna, igual ao modo visualização) -->
+    <td><select class="edit-select" id="edit-map">${profile.maps.map(m=>`<option${m===r.map?" selected":""}>${m}</option>`).join("")}</select></td>
+    
+    ${inputMetrics.filter(m=>m!=="map").map(m=>`<td><input class="edit-input" type="number" id="edit-${m}" value="${r[m]??""}" placeholder="${METRIC_MAP[m]?.label}"></td>`).join("")}
+    <td colspan="${calcMetrics.length}" style="color:var(--sub);font-size:11px;white-space:nowrap">auto-calculado</td>
+    <td><input class="edit-input" type="text" id="edit-notes" value="${(r.notes??"").replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}" placeholder="Anotações" style="width:120px!important;"></td>
+    <td><button class="save-btn" onclick="saveEditMatch()">OK</button><button class="cancel-btn" onclick="cancelEditMatch()">✕</button></td>
+  </tr>`;
+}
+
+function startEditMatch(id) { editingMatchId = id; renderLog(); }
+function cancelEditMatch() { editingMatchId = null; renderLog(); }
+
+function saveEditMatch() {
+  const profile = getActiveProfile();
+  const inputMetrics = profile.metrics.filter(m => METRIC_MAP[m]?.type === "input");
+  const map = document.getElementById("edit-map").value;
+  const dateInput = document.getElementById("edit-date")?.value;
+  const timeInput = document.getElementById("edit-daytime")?.value;  // <-- MUDANÇA AQUI
+  const notes = document.getElementById("edit-notes")?.value.trim() || "";
+  console.log("[DBG] inputMetrics =", JSON.stringify(inputMetrics));
+  console.log("[DBG] edit-time element =", document.getElementById("edit-time"));
+  console.log("[DBG] edit-time value  =", document.getElementById("edit-time")?.value);
+  console.log("[DBG] qty de edit-time no DOM =", document.querySelectorAll('[id="edit-time"]').length);
+  console.log("[DBG] dateInput =", dateInput, "| timeInput =", timeInput);
+  const values = { map, notes }; let valid = true;
+  inputMetrics.filter(m=>m!=="map").forEach(m => { const v=parseFloat(document.getElementById(`edit-${m}`)?.value); if(isNaN(v)){valid=false;return;} values[m]=v; });
+  console.log("[DBG] values final =", JSON.stringify(values));
+  if (!valid) { showToast("⚠ Valores inválidos"); return; }
+
+
+
+  profile.matches = profile.matches.map(r => {
+  if (r.id !== editingMatchId) return r;
+  const updated = buildMatch(values, profile.metrics, profile);
+  updated.id = editingMatchId;
+  // PRESERVAR: match_number (edição não muda ordem cronológica)
+  updated.match_number = r.match_number;
+    // hora/Data: converte hora local digitada para UTC
+    if (dateInput) {
+      const localDate = toLocalDate(r.match_date);
+      const localTime = toLocalTime(r.match_date);
+      
+      if (dateInput === localDate && timeInput === localTime) {
+        updated.match_date = r.match_date;
+      } else {
+        const timeToUse = timeInput || localTime || "12:00";
+        // Converte hora local digitada para UTC real
+        const local = new Date(`${dateInput}T${timeToUse}:00`);
+        updated.match_date = local.toISOString();
+      }
+    } else {
+      updated.match_date = r.match_date;
+    }
+  return updated;
+  });
+  // Captura os match_number antes de normalizar para detectar quais mudaram
+  const numbersBefore = new Map(
+    profile.matches
+      .filter(m => m.id && !m.id.startsWith('m'))
+      .map(m => [m.id, m.match_number])
+  );
+
+  normalizeProfileMatches(profile);
+
+  // Detecta quais partidas tiveram match_number alterado pela normalização
+  const changedMatches = profile.matches.filter(m => {
+    if (!m.id || m.id.startsWith('m')) return false;
+    return numbersBefore.get(m.id) !== m.match_number;
+  });
+
+  const updatedMatch = profile.matches.find(r => r.id === editingMatchId);
+
+  saveState();
+
+  // Envia para a nuvem só as partidas que realmente mudaram de número,
+  // mais a partida editada (que pode ter mudado outros campos além do número)
+  const toSync = changedMatches.some(m => m.id === editingMatchId)
+    ? changedMatches
+    : [...changedMatches, updatedMatch];
+
+    (async () => {
+      await syncToCloud("upsert_matches", { profileId: activeProfileId, matches: toSync });
+    })();
+
+  editingMatchId=null; renderLog(); showToast("✓ Partida atualizada");
+}
+function deleteMatch(id) {
+  const profile = getActiveProfile();
+
+  profile.matches = profile.matches.filter(r => r.id !== id);
+  normalizeProfileMatches(profile);
+  saveState();
+  syncToCloud("delete_match", { profileId: activeProfileId, matchId: id });
+  renderLog(); showToast("Partida removida");
+}
+
+function duplicateMatch(id) {
+  const profile = getActiveProfile();
+  if (!profile) return;
+
+  const original = profile.matches.find(r => r.id === id);
+  if (!original) return;
+
+  const copy = { ...original };
+  copy.id = "m" + Date.now() + Math.random().toString(36).substr(2, 5);
+  // NOVO: cópia recebe um match_number novo (é uma nova entrada no histórico)
+  const maxNum = profile.matches.reduce((max, match) => {
+    const num = parseInt(match.match_number);
+    return !isNaN(num) && num > max ? num : max;
+  }, 0);
+  copy.match_number = maxNum + 1;
+  copy.match_date = new Date().toISOString();
+  profile.matches.push(copy);
+  normalizeProfileMatches(profile);
+  saveState();
+
+  syncToCloud("upsert_match", { profileId: activeProfileId, match: copy })
+    .then(cloudId => {
+      if (cloudId) {
+        copy.id = cloudId;
+        saveState();
+      }
+    })
+    .catch(err => console.error("Erro ao sincronizar cópia:", err));
+
+  renderLog();
+  showToast("✓ Partida duplicada");
+}
+
+/* ============================================================
+   RENDERIZAÇÃO — NOVA PARTIDA
+   Monta o formulário de registro e o preview ao vivo
+   dos valores calculados (K/D, KPM, KPD).
+   ============================================================ */
+function renderAddForm() {
+  const profile = getActiveProfile();
+  if (!profile) {
+    document.getElementById("addFormFields").innerHTML = `<div class="empty-state" style="padding:32px 20px;"><div class="e-icon">🎮</div><div class="e-title">Nenhum perfil ativo</div><div class="e-sub">Crie um perfil na aba "Perfis" antes de adicionar partidas</div></div>`;
+    document.getElementById("preview").style.display = "none";
+    return;
+  }
+
+  const isFirstMatch = profile.matches.length === 0;
+  const inputMetrics = profile.metrics.filter(m => METRIC_MAP[m]?.type === "input");
+  const calcMetrics = profile.metrics.filter(m => METRIC_MAP[m]?.type === "calc");
+  let html = `<div class="field"><label>Mapa</label><select id="f-map">${profile.maps.map(m=>`<option>${m}</option>`).join("")}</select></div>`;
+  html += `<div class="field" style="margin-bottom:12px;"><label>Anotações</label><textarea id="f-notes" rows="3" placeholder="Como foi a partida? O que aprendeu?"></textarea></div>`;
+  for (let i = 0; i < inputMetrics.length; i += 2) {
+    html += `<div class="form-row" style="margin-bottom:12px;">`;
+    for (let j = i; j < Math.min(i+2,inputMetrics.length); j++) {
+      const m = inputMetrics[j]; const meta = METRIC_MAP[m];
+      html += `<div class="field" style="margin-bottom:0"><label>${meta.label}</label><input type="number" id="f-${m}" min="0" placeholder="ex: 0" oninput="updatePreview()"></div>`;
+    }
+    html += `</div>`;
+  }
+  if (isFirstMatch) {
+    html += `<div style="background:rgba(0,229,255,0.05);border:1px solid var(--brand);padding:12px 16px;margin-top:16px;font-size:12px;color:var(--sub);">
+      <strong style="color:var(--brand);">💡 Dica:</strong> Registre os dados logo após a partida para não esquecer. Você pode editar depois se precisar.
+    </div>`;
+  }
+  document.getElementById("addFormFields").innerHTML = html;
+  const previewBox = document.getElementById("preview");
+  previewBox.innerHTML = calcMetrics.map(m => `<div class="preview-item"><div class="p-label">${METRIC_MAP[m].label}</div><div class="p-val" id="prev-${m}" style="color:var(--sub)">—</div></div>`).join("");
+  previewBox.style.display = calcMetrics.length ? "flex" : "none";
+}
+
+function updatePreview() {
+  const profile = getActiveProfile();
+  const calcMetrics = profile.metrics.filter(m => METRIC_MAP[m]?.type === "calc");
+  if (!calcMetrics.length) return;
+  const kills = parseFloat(document.getElementById("f-kills")?.value);
+  const deaths = parseFloat(document.getElementById("f-deaths")?.value);
+  const time = parseFloat(document.getElementById("f-time")?.value);
+  calcMetrics.forEach(m => {
+    const el = document.getElementById(`prev-${m}`); if (!el) return;
+    let val = "—";
+    if (m==="kd" && !isNaN(kills)&&!isNaN(deaths)&&deaths>0) val=+(kills/deaths).toFixed(2);
+    if (m==="kpm"&&!isNaN(kills)&&!isNaN(time)&&time>0) val=+(kills/time).toFixed(2);
+    if (m==="kpd"&&!isNaN(deaths)&&!isNaN(time)&&time>0) val=+(deaths/time).toFixed(2);
+    el.textContent = val;
+    const colorVar = METRIC_COLORS[m];
+    el.style.color = (colorVar && typeof val === "number") ? colorVar : "var(--sub)";
+  });
+}
+
+async function addMatch() {
+  console.log("=== addMatch INICIADO ===");
+  
+  const profile = getActiveProfile();
+  console.log("Profile:", profile ? profile.game : "NULL");
+  if (!profile) {
+    showToast("⚠ Nenhum perfil ativo");
+    console.log("=== addMatch ABORTADO: sem perfil ===");
+    return;
+  }
+
+  const inputMetrics = profile.metrics.filter(m => METRIC_MAP[m]?.type === "input");
+  console.log("Input metrics:", inputMetrics);
+  
+  const mapEl = document.getElementById("f-map");
+  console.log("Map element:", mapEl ? "encontrado" : "NÃO ENCONTRADO");
+  console.log("Map value:", mapEl?.value);
+  
+  const map = mapEl?.value || "";
+  const notes = document.getElementById("f-notes")?.value.trim() || "";
+  const values = { map, notes };
+  let valid = true;
+
+  for (const m of inputMetrics) {
+    const el = document.getElementById(`f-${m}`);
+    console.log(`Campo f-${m}:`, el ? `valor="${el.value}"` : "NÃO ENCONTRADO");
+    if (!el) {
+      valid = false;
+      break;
+    }
+    const v = parseFloat(el.value);
+    if (isNaN(v) || v < 0) {
+      console.log(`Campo ${m} inválido:`, el.value);
+      valid = false;
+      break;
+    }
+    values[m] = v;
+  }
+
+  console.log("Valid:", valid, "Map:", map);
+  if (!valid || !map) {
+    showToast("⚠ Preencha todos os campos corretamente");
+    console.log("=== addMatch ABORTADO: validação falhou ===");
+    return;
+  }
+
+  const prevRecords = getRecords(profile.matches, profile.metrics);
+  const match = buildMatch(values, profile.metrics, profile);
+  console.log("Match criado:", match);
+
+  showToast("⏳ Salvando partida...");
+
+  let savedId = null;
+  try {
+    savedId = await syncToCloud("upsert_match", { profileId: activeProfileId, match });
+    console.log("SavedId da nuvem:", savedId);
+  } catch (e) {
+    console.log("Sync erro:", e);
+  }
+
+  if (savedId) {
+    match.id = savedId;
+  } else {
+    match.id = "m" + Date.now() + Math.random().toString(36).substr(2, 5);
+  }
+  console.log("Match ID final:", match.id);
+
+  // CORREÇÃO: inserir na posição ordenada por match_date, não no final
+  const insertIndex = profile.matches.findIndex(m => {
+    if (!m.match_date || !match.match_date) return false;
+    return new Date(m.match_date) > new Date(match.match_date);
+  });
+  
+  if (insertIndex === -1) {
+    // Nenhuma partida mais recente, insere no final
+    profile.matches.push(match);
+  } else {
+    // Insere antes da primeira partida mais recente
+    profile.matches.splice(insertIndex, 0, match);
+  }
+  
+  normalizeProfileMatches(profile);
+  console.log("Total de partidas agora:", profile.matches.length);
+  
+  saveState();
+  console.log("State salvo no localStorage");
+
+  const newRecords = getRecords(profile.matches, profile.metrics);
+  checkNewRecords(prevRecords, newRecords);
+
+  for (const m of inputMetrics) {
+    const el = document.getElementById(`f-${m}`);
+    if (el) el.value = "";
+  }
+  const notesEl = document.getElementById("f-notes");
+  if (notesEl) notesEl.value = "";
+
+  document.querySelectorAll("#preview .p-val").forEach(el => {
+    el.textContent = "—";
+    el.style.color = "var(--sub)";
+  });
+
+  const summaryMetrics = profile.metrics.filter(m => ["kd", "kpm", "kills"].includes(m));
+  const summary = summaryMetrics.map(m => `${METRIC_MAP[m].label} ${match[m]}`).join(" · ");
+  showToast(summary ? `✓ Partida salva — ${summary}` : "✓ Partida salva");
+  console.log("=== addMatch CONCLUÍDO ===");
+  setTab("dashboard");
+}
+
+
+/* ============================================================
+   RENDERIZAÇÃO — PERFIS
+   Monta a lista de perfis e o modal de criar/editar perfil,
+   incluindo seleção de métricas e gerenciamento de mapas.
+   ============================================================ */
+function renderProfilesPane() {
+  const list = document.getElementById("profileList");
+  if (!state.profiles.length) { list.innerHTML=`<div class="empty-state"><div class="e-icon">🎮</div><div class="e-title">Nenhum perfil criado</div><div class="e-sub">Clique em "+ Novo Perfil" para começar</div></div>`; return; }
+  list.innerHTML = state.profiles.map(p => `<div class="profile-item${p.id===activeProfileId?" active-profile":""}"><div style="flex:1;min-width:0;"><div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;"><span class="profile-name">${profileLabel(p)}</span>${p.id===activeProfileId?'<span class="profile-badge">Ativo</span>':""}</div><div class="profile-sub">${p.matches.length} partidas · ${p.metrics.length} métricas · ${p.maps.length} mapas</div></div><div class="profile-actions">${p.id!==activeProfileId?`<button class="hbtn brand" onclick="switchProfile('${p.id}')">Ativar</button>`:""}<button class="hbtn action" onclick="openModal('edit','${p.id}')">✎ Editar</button></div></div>`).join("");
+}
+
+let modalMode="new", modalProfileId=null, modalMaps=[];
+function openModal(mode, profileId) {
+  modalMode=mode; modalProfileId=profileId||activeProfileId;
+  const isNew=mode==="new"; const p=isNew?null:getProfile(modalProfileId);
+  document.getElementById("modal-title").textContent=isNew?"Novo Perfil":"Editar Perfil";
+  modalMaps=isNew?[]:[...p.maps];
+  const selectedMetrics=isNew?["kills","deaths","time","kd","kpm","kpd"]:p.metrics;
+  document.getElementById("modal-body").innerHTML=`<div class="field"><label>Jogo</label><input type="text" id="m-game" placeholder="ex: Delta Force" value="${p?.game||""}"></div><div class="form-row" style="margin-bottom:12px;"><div class="field" style="margin-bottom:0"><label>Modo</label><input type="text" id="m-mode" placeholder="ex: A/D" value="${p?.mode||""}"></div><div class="field" style="margin-bottom:0"><label>Servidor (opcional)</label><input type="text" id="m-server" placeholder="ex: BR" value="${p?.server||""}"></div></div><hr class="divider"><span class="section-label">Métricas</span><div class="metric-grid" id="metricGrid">${ALL_METRICS.map(m=>`<label class="metric-item"><input type="checkbox" value="${m.id}" ${selectedMetrics.includes(m.id)?"checked":""}><div><span>${m.label}</span>${m.type==="calc"?`<br><small>requer: ${m.needs.join(", ")}</small>`:""}</div></label>`).join("")}</div><hr class="divider"><span class="section-label">Mapas</span><div class="tag-list" id="modalTagList"></div><div class="add-tag-row"><input type="text" id="m-map-input" placeholder="Nome do mapa" onkeydown="if(event.key==='Enter')addModalMap()"><button class="add-tag-btn" onclick="addModalMap()">＋ Adicionar</button></div>`;
+  renderModalTags();
+  document.getElementById("modal-actions").innerHTML=`${!isNew&&state.profiles.length>1?`<button class="modal-delete" onclick="deleteProfile('${modalProfileId}').catch(()=>{})">🗑 Excluir Perfil</button>`:""}<button class="modal-cancel" onclick="closeModal()">Cancelar</button><button class="modal-save" onclick="saveModal()">Salvar</button>`;
+  document.getElementById("modal-overlay").classList.add("open");
+}
+function renderModalTags() { document.getElementById("modalTagList").innerHTML=modalMaps.map((m,i)=>`<div class="tag">${m}<button class="tag-remove" onclick="removeModalMap(${i})">×</button></div>`).join(""); }
+function addModalMap() { const inp=document.getElementById("m-map-input"); const val=inp.value.trim(); if(!val)return; if(modalMaps.includes(val)){showToast("Mapa já existe");return;} modalMaps.push(val); renderModalTags(); inp.value=""; }
+function removeModalMap(i) { modalMaps.splice(i,1); renderModalTags(); }
+
+function saveModal() {
+  const game=document.getElementById("m-game").value.trim();
+  const mode=document.getElementById("m-mode").value.trim();
+  const server=document.getElementById("m-server").value.trim();
+  const metrics=[...document.querySelectorAll("#metricGrid input:checked")].map(c=>c.value);
+  if(!game){showToast("⚠ Informe o nome do jogo");return;}
+  if(!metrics.length){showToast("⚠ Selecione pelo menos uma métrica");return;}
+  if(modalMode==="new"){
+    const id = "p" + Date.now();
+    state.profiles.push({ id, game, mode, server, maps: modalMaps, metrics, matches: [] });
+    activeProfileId=id; state.activeProfileId=id; showToast(`✓ Perfil "${game}" criado`);
+  } else {
+    const p=getProfile(modalProfileId); p.game=game; p.mode=mode; p.server=server; p.maps=modalMaps; p.metrics=metrics; showToast("✓ Perfil atualizado");
+  }
+  saveState(); closeModal(); refreshAll();
+  if (currentUser && supabaseClient) {
+    const savedProfile = modalMode === "new"
+      ? state.profiles[state.profiles.length - 1]
+      : getProfile(modalProfileId);
+    if (savedProfile) syncProfileToCloud(savedProfile);
+  }
+}
+async function deleteProfile(id) {
+  if (!confirm("Excluir este perfil e todos os dados?")) return;
+  
+  const profile = getProfile(id);
+  let cloudId = profile?.cloudId || null;
+  
+  // ─── PASSO 1: Deletar na nuvem PRIMEIRO ───
+  if (supabaseClient && currentUser && cloudId) {
+    showToast("⏳ Excluindo na nuvem...");
+    
+    // ─── SOFT DELETE: marca como deletado em vez de apagar ───
+    let { data: updatedRows, error } = await supabaseClient
+      .from("game_profiles")
+      .update({ deleted: true, deleted_at: new Date().toISOString() })
+      .eq("id", cloudId)
+      .eq("user_id", currentUser.id)
+      .eq("deleted", false)
+      .select("id");
+    
+    // Se 0 linhas afetadas, o cloudId pode estar stale ou já deletado. Busca pelo local_id.
+    if (!error && (!updatedRows || updatedRows.length === 0)) {
+      console.warn(`[DELETE] cloudId ${cloudId} não encontrado na nuvem. Buscando por local_id...`);
+      const { data: found, error: findErr } = await supabaseClient
+        .from("game_profiles")
+        .select("id, deleted")
+        .eq("user_id", currentUser.id)
+        .eq("local_id", profile.id)
+        .single();
+      
+      if (!findErr && found) {
+        if (found.deleted) {
+          // Já está deletado na nuvem — considera sucesso
+          updatedRows = [{ id: found.id }];
+        } else {
+          cloudId = found.id;
+          const { data: updatedRows2, error: error2 } = await supabaseClient
+            .from("game_profiles")
+            .update({ deleted: true, deleted_at: new Date().toISOString() })
+            .eq("id", cloudId)
+            .eq("user_id", currentUser.id)
+            .select("id");
+            
+          if (!error2 && updatedRows2 && updatedRows2.length > 0) {
+            updatedRows = updatedRows2;
+          } else {
+            error = error2 || new Error("Não foi possível deletar na nuvem após corrigir cloudId");
+          }
+        }
+      } else {
+        error = findErr || new Error("Perfil não encontrado na nuvem pelo local_id");
+      }
+    }
+    
+    if (error) {
+      console.error("Erro ao excluir perfil da nuvem:", error);
+      showToast("⚠ Perfil excluído localmente. Falha ao remover da nuvem — tente o botão Sync.");
+      return;
+    }
+    
+    if (!updatedRows || updatedRows.length === 0) {
+      showToast("⚠ Perfil não encontrado na nuvem. Pode já ter sido excluído.");
+    } else {
+      showToast("☁ Perfil excluído da nuvem");
+    }
+  }
+  
+  // ─── PASSO 2: Só remove localmente se a nuvem confirmou (ou se nunca houve cloudId) ───
+  generateEmergencyBackup();
+  showToast("💾 Backup de segurança baixado");
+  
+  // Limpa metas do perfil do localStorage
+  if (profile) {
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith("goal_") && key.endsWith(`_${profile.id}`)) {
+        localStorage.removeItem(key);
+      }
+    }
+  }
+  
+  state.profiles = state.profiles.filter(p => p.id !== id);
+  if (activeProfileId === id) {
+    activeProfileId = state.profiles[0]?.id || null;
+    state.activeProfileId = activeProfileId;
+  }
+  saveState(); closeModal(); refreshAll(); showToast("Perfil excluído");
+}
+function closeModal() { document.getElementById("modal-overlay").classList.remove("open"); }
+function closeModalOutside(e) { if(e.target===document.getElementById("modal-overlay"))closeModal(); }
+
+/* ============================================================
+   RENDERIZAÇÃO — DASHBOARD (continuação)
+   Funções de controle dos sub-componentes do dashboard:
+   ordenação da tabela de mapas e troca de aba de evolução.
+   ============================================================ */
+
+function calcAdaptiveEvolution(values, isInverted) {
+  // values: array de números (ex: todos os K/D da vida do jogador)
+  // isInverted: true para KPD (menor = melhor)
+  
+  const total = values.length;
+  
+  // Mínimo de 6 partidas para ser relevante (3 vs 3)
+  if (total < 6) return null;
+  
+  // Calcula o tamanho da amostra: metade do total de cada lado,
+  // travando em 30 assim que o histórico atingir 60 partidas
+  let sampleSize = Math.floor(total / 2);
+  sampleSize = Math.min(30, sampleSize);  // máximo 30 (trava aos 60 partidas)
+  
+  const first = values.slice(0, sampleSize);
+  const last = values.slice(-sampleSize);
+  
+  const avgFirst = first.reduce((a, b) => a + b, 0) / first.length;
+  const avgLast = last.reduce((a, b) => a + b, 0) / last.length;
+  
+  if (avgFirst === 0) return null;
+  
+  let pct;
+  if (isInverted) {
+    // KPD: se diminuiu, é positivo (melhorou)
+    pct = ((avgFirst - avgLast) / avgFirst) * 100;
+  } else {
+    // KD, KPM, Kills: se aumentou, é positivo (melhorou)
+    pct = ((avgLast - avgFirst) / avgFirst) * 100;
+  }
+  
+  return {
+    pct: Math.round(pct),
+    sampleSize,
+    totalGames: total,
+    avgFirst: +(avgFirst).toFixed(2),
+    avgLast: +(avgLast).toFixed(2),
+    improved: pct > 0,
+    stable: Math.abs(pct) < 5
+  };
+}
+
+function formatEvolution(ev, variant) {
+  if (!ev) return `<span style="color:var(--muted);font-size:11px;">Mínimo 6 partidas</span>`;
+  
+  const isRecente = variant === 'recente';
+  const stableLabel = isRecente ? 'Platô' : 'Estável';
+  const growthLabel = isRecente ? 'Evolução Recente' : 'Evolução Total';
+  const dropLabel = isRecente ? 'Regressão Recente' : 'Regressão Total';
+  
+  const color = ev.improved ? 'var(--confirm)' : (ev.stable ? 'var(--brand)' : 'var(--danger)');
+  const sign = ev.pct > 0 ? '+' : '';
+  const arrow = ev.improved ? '▲' : (ev.stable ? '●' : '▼');
+  const label = ev.stable ? stableLabel : (ev.improved ? growthLabel : dropLabel);
+  
+  return `<span style="color:${color};font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:600;letter-spacing:0.5px;">
+    ${arrow} ${sign}${ev.pct}% ${label}
+  </span><br><span style="color:var(--muted);font-size:10px;font-family:'Rajdhani',sans-serif;">
+    (${ev.sampleSize} primeiras vs ${ev.sampleSize} últimas)
+  </span>`;
+}
+
+function toggleMapTable() {
+  mapTableVisible = !mapTableVisible;
+  localStorage.setItem("gt_mapTableVisible", mapTableVisible);
+  const wrap = document.getElementById("mapTableWrap");
+  const btn = document.querySelector(".map-toggle");
+  if (wrap) wrap.style.display = mapTableVisible ? "" : "none";
+  if (btn) btn.textContent = mapTableVisible ? "▾ Ocultar dados" : "▸ Mostrar dados";
+}
+
+function refreshMapChart() {
+  const chart = charts["mapbars"];
+  if (!chart) return;
+  const profile = getActiveProfile();
+  if (!profile) return;
+
+  const mapAgg = computeMapAgg(profile.matches, mapViewMode);
+  const sortCol = mapSort.col;
+  const mapArr = Object.entries(mapAgg).map(([map, s]) => ({ map, games: s.games, kd: s.kd, kpm: s.kpm, kpd: s.kpd }));
+  mapArr.sort((a, b) => { const valA = a[sortCol]; const valB = b[sortCol]; return mapSort.dir === 'desc' ? valB - valA : valA - valB; });
+  const vals = mapArr.map(m => m[sortCol]);
+  const sortColor = METRIC_COLORS[sortCol] || 'var(--brand)';
+  const sortHex = getComputedStyle(document.documentElement).getPropertyValue(sortColor.replace('var(','').replace(')','')).trim() || '#00e5ff';
+  const partidasLabel = mapViewMode === 'total' ? 'Partidas' : 'Partidas (30)';
+
+  chart.data.labels = mapArr.map(m => m.map);
+  chart.data.datasets[0].label = sortCol === 'games' ? partidasLabel : (METRIC_MAP[sortCol]?.label || sortCol.toUpperCase());
+  chart.data.datasets[0].data = vals;
+  chart.data.datasets[0].backgroundColor = mapArr.map(() => sortHex + "d9");
+  chart.data.datasets[0].borderColor = mapArr.map(() => sortHex);
+  chart.options.plugins.datalabels.color = sortHex;
+  chart.options.scales.y.suggestedMax = Math.max(...vals) * 1.12;
+  chart._mapArr = mapArr;
+  chart._sortCol = sortCol;
+  chart._viewMode = mapViewMode;
+  chart.update();
+
+  const mapTableHead = document.getElementById("mapTableHead");
+  if (mapTableHead) mapTableHead.innerHTML = buildMapTableHeadHtml(mapArr);
+}
+
+function sortMapTable(col) {
+  if (mapSort.col === col) {
+    mapSort.dir = mapSort.dir === 'desc' ? 'asc' : 'desc';
+  } else {
+    mapSort.col = col;
+    mapSort.dir = col === 'kpd' ? 'asc' : 'desc';
+  }
+  refreshMapChart();
+
+  const mapCard = document.getElementById('ch-mapbars')?.closest('.card');
+  if (mapCard) {
+    mapCard.querySelectorAll('.map-tab-btn').forEach(btn => {
+      btn.classList.remove('active', 'metric-kd', 'metric-kpm', 'metric-kpd');
+      const onclick = btn.getAttribute('onclick');
+      if (onclick && onclick.includes(`'${mapSort.col}'`)) btn.classList.add('active', `metric-${mapSort.col}`);
+    });
+  }
+}
+
+function setMapViewMode(mode) {
+  if (mode !== 'recent' && mode !== 'total') return;
+  mapViewMode = mode;
+
+  const mapCard = document.getElementById('ch-mapbars')?.closest('.card');
+  if (mapCard) {
+    const btn = mapCard.querySelector('.map-view-tab-btn');
+    if (btn) btn.textContent = mode === 'total' ? 'Total' : 'Recente';
+  }
+
+  refreshMapChart();
+}
+
+function toggleMapViewMode() {
+  setMapViewMode(mapViewMode === 'total' ? 'recent' : 'total');
+}
+
+function setEvolutionTab(tab) {
+  evolutionTab = tab;
+
+  // Sincroniza classes visuais dos botões de aba
+  const evoCard = document.getElementById('ch-evolution')?.closest('.card');
+  if (evoCard) {
+    evoCard.querySelectorAll('.map-tab-btn').forEach(btn => {
+      btn.classList.remove('active', 'metric-kd', 'metric-kpm', 'metric-kpd', 'metric-kills');
+      const onclick = btn.getAttribute('onclick');
+      if (onclick && onclick.includes(`'${tab}'`)) {
+        btn.classList.add('active', `metric-${tab}`);
+      }
+    });
+  }
+
+  refreshEvolutionChart();
+  refreshEvolutionIndicator();
+}
+
+function refreshEvolutionIndicator() {
+  const evContainer = document.getElementById("evolution-indicator");
+  if (!evContainer) return;
+  const profile = getActiveProfile();
+  if (!profile) { evContainer.innerHTML = ""; return; }
+  const mid = evolutionTab;
+  const isInvertedMap = { kd: false, kpm: false, kpd: true, kills: false };
+  const allValues = profile.matches.map(r => r[mid]).filter(v => v !== undefined && v !== null && v > 0);
+  const evData = evolutionViewMode === 'total'
+    ? calcAdaptiveEvolution(allValues, isInvertedMap[mid])
+    : calcAdaptiveEvolution(allValues.slice(-60), isInvertedMap[mid]);
+  const variant = evolutionViewMode === 'total' ? 'geral' : 'recente';
+  evContainer.innerHTML = `<div>${formatEvolution(evData, variant)}</div>`;
+}
+
+function refreshEvolutionChart() {
+  const chart = charts["evolution"];
+  if (!chart) return;
+  const profile = getActiveProfile();
+  if (!profile) return;
+  const mid = evolutionTab;
+  const evoMatches = evolutionViewMode === 'recent' ? profile.matches.slice(-30) : profile.matches;
+  const labels = evoMatches.map(r => r.match_number);
+  const vals = evoMatches.map(r => r[mid] ?? 0);
+  const hexColor = getComputedStyle(document.documentElement).getPropertyValue(METRIC_COLORS[mid].replace('var(','').replace(')','')).trim() || '#b388ff';
+  const maVals = movingAverage(vals, 10);
+  const hasRecordDots = mid in RECORD_METRICS;
+  const isInvertedMetric = RECORD_METRICS[mid] || false;
+
+  chart.data.labels = labels;
+  chart.data.datasets[0].data = vals;
+  chart.data.datasets[0].label = METRIC_MAP[mid].label;
+  chart.data.datasets[0].borderColor = hexColor;
+  chart.data.datasets[0].backgroundColor = hexColor + "0d";
+  chart.data.datasets[1].data = maVals;
+  chart.data.datasets[1].borderColor = hexColor;
+  chart._hasRecordDots = hasRecordDots;
+  chart._hexColor = hexColor;
+  chart._matchesUsed = evoMatches;
+  chart.options.plugins.recordDots = { enabled: hasRecordDots && recordDotsVisible, inverted: isInvertedMetric };
+  chart.options.scales.y.suggestedMax = Math.max(...vals.filter(v => v > 0).sort((a, b) => a - b).slice(0, Math.ceil(vals.length * 0.95))) || 5;
+  chart.update();
+}
+
+function setEvolutionViewMode(mode) {
+  if (mode !== 'recent' && mode !== 'total') return;
+  evolutionViewMode = mode;
+  renderDashboard();
+}
+
+function toggleEvolutionViewMode() {
+  setEvolutionViewMode(evolutionViewMode === 'total' ? 'recent' : 'total');
+}
+
+function setKpiViewMode(mode) {
+  if (mode !== 'recent' && mode !== 'total') return;
+  kpiViewMode = mode;
+  renderDashboard();
+}
+
+function toggleKpiViewMode() {
+  setKpiViewMode(kpiViewMode === 'total' ? 'recent' : 'total');
+}
+
+function toggleRecordDots() {
+  recordDotsVisible = !recordDotsVisible;
+  localStorage.setItem('gt_recordDots', recordDotsVisible);
+  const chart = charts["evolution"];
+  if (chart) {
+    chart._recordDotsVisible = recordDotsVisible;
+    chart.options.plugins.recordDots.enabled = recordDotsVisible;
+    chart.update();
+  }
+}
+
+function generateEmergencyBackup() {
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `aimdata-emergency-backup-${timestamp}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(a.href);
+  return true;
+}
+
+function exportData() {
+  const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+  a.download="aimdata-backup.json"; a.click(); showToast("✓ Backup exportado");
+}
+
+async function syncMissingProfilesToCloud() {
+  if (!supabaseClient || !currentUser) return;
+  
+  for (const profile of state.profiles) {
+    if (profile.cloudId) continue; // Já existe na nuvem
+    
+    // ─── VERIFICA SE FOI DELETADO NA NUVEM ANTES DE RECRIAR ───
+    const { data: existingDeleted, error: checkErr } = await supabaseClient
+      .from("game_profiles")
+      .select("id, deleted")
+      .eq("user_id", currentUser.id)
+      .eq("local_id", profile.id)
+      .maybeSingle();
+    
+    if (!checkErr && existingDeleted) {
+      if (existingDeleted.deleted) {
+        console.warn(`[SYNC] Perfil ${profile.game} foi deletado na nuvem. Removendo local.`);
+        state.profiles = state.profiles.filter(p => p.id !== profile.id);
+        if (activeProfileId === profile.id) {
+          activeProfileId = state.profiles[0]?.id || null;
+          state.activeProfileId = activeProfileId;
+        }
+        saveState();
+        continue;
+      } else {
+        // Existe e não está deletado — vincula cloudId sem recriar
+        profile.cloudId = existingDeleted.id;
+        saveState();
+        continue;
+      }
+    }
+    
+    console.log(`[SYNC] Criando perfil na nuvem: ${profile.game} ${profile.mode || ''} ${profile.server || ''}`);
+    
+    try {
+      const { data, error } = await supabaseClient
+        .from("game_profiles")
+        .upsert({
+          user_id: currentUser.id,
+          local_id: profile.id,
+          game: profile.game,
+          mode: profile.mode,
+          server: profile.server,
+          maps: profile.maps,
+          metrics: profile.metrics,
+          deleted: false,
+          updated_at: new Date().toISOString()
+        }, { onConflict: "user_id,local_id" })
+        .select();
+      
+      if (error) {
+        console.error(`[SYNC] Erro ao criar perfil ${profile.game}:`, error);
+        continue;
+      }
+      
+      if (data && data.length > 0) {
+        profile.cloudId = data[0].id;
+        console.log(`[SYNC] Perfil criado na nuvem. cloudId: ${profile.cloudId}`);
+      }
+    } catch (e) {
+      console.error(`[SYNC] Exceção ao criar perfil ${profile.game}:`, e);
+    }
+  }
+  
+  saveState();
+}
+
+function importData(e) {
+  const file=e.target.files[0]; if(!file)return;
+  generateEmergencyBackup();
+  showToast("💾 Backup de segurança baixado");
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    try {
+      const data=JSON.parse(ev.target.result);
+      if(data.profiles&&Array.isArray(data.profiles)){
+        // CORREÇÃO: ordenar por match_date antes de reatribuir match_number
+        data.profiles.forEach(profile => {
+          if (!Array.isArray(profile.matches)) return;
+          
+          // Ordenar por match_date (mais antiga primeiro)
+          profile.matches.sort((a, b) => {
+            const dateA = a.match_date ? new Date(a.match_date).getTime() : 0;
+            const dateB = b.match_date ? new Date(b.match_date).getTime() : 0;
+            return dateA - dateB;
+          });
+          
+          normalizeProfileMatches(profile);
+        });
+        state=data;
+        
+        // CORREÇÃO: Limpar cloudId de todos os perfis importados
+        // O backup pode vir de outra conta, outro banco, ou nuvem inexistente
+        state.profiles.forEach(p => {
+          if (p.cloudId) {
+            console.log(`[IMPORT] Limpando cloudId do perfil importado: ${p.game} ${p.mode || ''}`);
+            delete p.cloudId;
+          }
+        });
+        
+        activeProfileId=state.activeProfileId||state.profiles[0]?.id;
+        saveState();
+        refreshAll();
+        showToast(`✓ ${state.profiles.length} perfil(s) importado(s)`);
+        
+        // NÃO dispara sync automático após importação
+        // O usuário deve clicar no botão Sync manualmente quando estiver pronto
+        if (currentUser && supabaseClient) {
+          markSyncPending();
+          showToast("✓ Importado. Clique em ☁ Sync para enviar à nuvem.");
+        }
+      }
+      else{showToast("⚠ Arquivo inválido");}
+    } catch{showToast("⚠ Erro ao ler arquivo");}
+  };
+  reader.readAsText(file); e.target.value="";
+}
+
+function toggleSettingsDropdown(e) {
+  e.stopPropagation();
+  const dropdown = document.getElementById("settingsDropdown");
+  dropdown.classList.toggle("open");
+}
+
+function closeSettingsDropdown() {
+  const dropdown = document.getElementById("settingsDropdown");
+  if (dropdown) dropdown.classList.remove("open");
+}
+
+function showToast(msg) {
+  const t=document.getElementById("toast"); t.textContent=msg; t.style.display="block";
+  clearTimeout(t._timer); t._timer=setTimeout(()=>{t.style.display="none";},2400);
+}
+
+/* ============================================================
+   SINCRONIZAÇÃO SUPABASE
+   Envia e recebe dados do banco quando o usuário está logado.
+   ============================================================ */
+
+function hasOfflineData() {
+  try {
+    const raw = localStorage.getItem("gt_v1");
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || !Array.isArray(parsed.profiles) || !parsed.profiles.length) return null;
+    const hasAnyMatch = parsed.profiles.some(p => Array.isArray(p.matches) && p.matches.length > 0);
+    return hasAnyMatch ? parsed : null;
+  } catch (e) {
+    console.error("Erro ao ler dados offline:", e);
+    return null;
+  }
+}
+
+let offlineMergeChecked = false;
+
+async function checkOfflineMerge() {
+  if (offlineMergeChecked) return;
+  if (!currentUser) return;
+  const offlineData = hasOfflineData();
+  if (!offlineData) return;
+  
+  // Se o auto-sync já rodou (consentimento dado antes), os dados de gt_v1
+  // provavelmente já foram sincronizados via merge. Não mostrar o modal
+  // evita duplicação por race condition entre auto-sync e prompt offline.
+  if (localStorage.getItem("sync_consented") === "true") {
+    console.log("[OFFLINE-MERGE] Pulando modal: sync já consentido. Limpando gt_v1 residual.");
+    localStorage.removeItem("gt_v1");
+    offlineMergeChecked = true;
+    return;
+  }
+  
+  if (document.getElementById("modal-overlay").classList.contains("open")) {
+    setTimeout(() => checkOfflineMerge(), 1000);
+    return;
+  }
+  offlineMergeChecked = true;
+  showOfflineMergeModal(offlineData);
+}
+
+function showOfflineMergeModal(offlineData) {
+  closeModal();
+  const totalMatches = offlineData.profiles.reduce((sum, p) => sum + (p.matches?.length || 0), 0);
+  const profileNames = offlineData.profiles.map(p => [p.game, p.mode, p.server].filter(Boolean).join(" · ")).join(", ");
+  document.getElementById("modal-title").textContent = "Dados salvos sem login encontrados";
+  document.getElementById("modal-body").innerHTML = `
+    <p style="font-size:13px;color:var(--sub);line-height:1.7;margin-bottom:16px;">
+      Encontramos ${totalMatches} partida(s) salva(s) neste navegador sem estar logado, no(s) perfil(is): <strong style="color:var(--text);">${profileNames}</strong>.
+    </p>
+    <p style="font-size:13px;color:var(--sub);line-height:1.7;margin-bottom:16px;">
+      Deseja incorporar esses dados à sua conta atual? Se já existir um perfil igual (mesmo jogo/modo/servidor), as partidas serão adicionadas a ele. Nenhuma partida existente na conta será apagada ou sobrescrita.
+    </p>
+  `;
+  document.getElementById("modal-actions").innerHTML = `
+    <button class="modal-cancel" onclick="declineOfflineMerge()">Não, ignorar</button>
+    <button class="modal-save" onclick="confirmOfflineMerge()">Sim, incorporar à conta</button>
+  `;
+  document.getElementById("modal-overlay").classList.add("open");
+}
+
+function declineOfflineMerge() {
+  closeModal();
+  showToast("✓ Dados offline mantidos separados. Use ↓ Export para salvá-los manualmente.");
+}
+
+async function confirmOfflineMerge() {
+  closeModal();
+  const offlineData = hasOfflineData();
+  if (!offlineData) return;
+
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const blob = new Blob([JSON.stringify(offlineData, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `aimdata-offline-backup-${timestamp}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(a.href);
+  showToast("💾 Backup dos dados offline baixado");
+
+  offlineData.profiles.forEach(offlineProfile => {
+    const match = state.profiles.find(p =>
+      p.game === offlineProfile.game && p.mode === offlineProfile.mode && p.server === offlineProfile.server
+    );
+    const incomingMatches = (offlineProfile.matches || []).map(m => ({
+      ...m,
+      id: "m" + Date.now() + Math.random().toString(36).substr(2, 5)
+    }));
+    if (match) {
+      match.matches = match.matches.concat(incomingMatches);
+      (offlineProfile.maps || []).forEach(mp => { if (!match.maps.includes(mp)) match.maps.push(mp); });
+    } else {
+      state.profiles.push({
+        id: "p" + Date.now() + Math.random().toString(36).substr(2, 5),
+        game: offlineProfile.game,
+        mode: offlineProfile.mode,
+        server: offlineProfile.server,
+        maps: offlineProfile.maps || [],
+        metrics: offlineProfile.metrics || [],
+        matches: incomingMatches
+      });
+    }
+  });
+
+  saveState();
+  state = loadState();
+
+  if (supabaseClient && currentUser) {
+    await uploadLocalOrphans();
+  }
+
+  localStorage.removeItem("gt_v1");
+  refreshAll();
+  showToast("✓ Dados offline incorporados à conta");
+}
+
+// Verifica se o usuário logado já tem dados no Supabase
+async function hasCloudData() {
+  if (!supabaseClient || !currentUser) {
+    console.log("hasCloudData: offline");
+    return false;
+  }
+  try {
+    const { data, error } = await supabaseClient
+      .from("game_profiles")
+      .select("id,local_id,deleted")
+      .eq("user_id", currentUser.id);
+    if (error) {
+      console.error("Erro ao verificar dados na nuvem:", error);
+      return false;
+    }
+    
+    // Verifica se os cloudIds locais ainda existem na nuvem e se foram deletados
+    const cloudMap = new Map((data || []).map(p => [p.id, p.deleted]));
+    
+    // Remove perfis locais que foram deletados na nuvem por outro dispositivo
+    const beforeCount = state.profiles.length;
+    const removedNames = [];
+    const removedProfiles = [];
+    state.profiles = state.profiles.filter(lp => {
+      if (lp.cloudId && cloudMap.has(lp.cloudId) && cloudMap.get(lp.cloudId) === true) {
+        console.warn(`[SYNC] cloudId ${lp.cloudId} do perfil ${lp.game} está deletado na nuvem. Removendo perfil local.`);
+        removedNames.push(lp.game);
+        
+        removedProfiles.push(lp);
+        // Limpa metas do perfil do localStorage
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith("goal_") && key.endsWith(`_${lp.id}`)) {
+            localStorage.removeItem(key);
+          }
+        }
+        return false;
+      }
+      return true;
+    });
+    
+    // ─── BACKUP DE EMERGÊNCIA (Regra 31) ───
+    if (removedProfiles.length > 0) {
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+      const backupState = {
+        _backup_reason: "hasCloudData_removed_orphans",
+        _backup_timestamp: new Date().toISOString(),
+        removed_profiles: removedProfiles,
+        remaining_profiles: state.profiles
+      };
+      const blob = new Blob([JSON.stringify(backupState, null, 2)], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `aimdata-orphan-backup-${timestamp}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(a.href);
+      console.log(`[BACKUP] Backup de ${removedProfiles.length} perfil(is) órfão(s) baixado.`);
+    }
+    
+   
+    if (state.profiles.length < beforeCount) {
+      saveState();
+      // Se o perfil ativo foi removido, ajusta
+      if (activeProfileId && !state.profiles.find(p => p.id === activeProfileId)) {
+        activeProfileId = state.profiles[0]?.id || null;
+        state.activeProfileId = activeProfileId;
+      }
+      if (removedNames.length > 0) {
+        showToast(`🗑 ${removedNames.join(", ")} removido(s) — deletado em outro dispositivo`);
+      }
+    }
+    
+    const hasData = data && data.length > 0;
+    console.log("hasCloudData:", hasData ? `tem ${data.length} perfis` : "vazio");
+    return hasData;
+  } catch (e) {
+    console.error("Exceção em hasCloudData:", e);
+    return false;
+  }
+}
+
+// Envia todos os dados do localStorage para o Supabase
+async function uploadLocalData() {
+  if (!supabaseClient || !currentUser) { showToast("⚠ Não está logado"); return false; }
+  showToast("☁ Enviando dados para a nuvem...");
+  try {
+    for (const profile of state.profiles) {
+
+      // 1. Upsert do perfil usando local_id como chave de conflito
+      let { data: profileData, error: profileError } = await supabaseClient
+        .from("game_profiles")
+        .upsert({
+          user_id: currentUser.id,
+          local_id: profile.id,
+          game: profile.game,
+          mode: profile.mode,
+          server: profile.server,
+          maps: profile.maps,
+          metrics: profile.metrics,
+          next_id: profile.nextId,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: "user_id,local_id"
+        })
+        .select();
+      if (profileError) {
+        console.error("Erro ao upsert perfil:", profileError);
+        throw profileError;
+      }
+      let cloudProfileId;
+      if (!profileData || profileData.length === 0) {
+        console.warn("Upsert retornou vazio, buscando perfil existente...");
+        const { data: existingProfile, error: findError } = await supabaseClient
+          .from("game_profiles")
+          .select("id")
+          .eq("user_id", currentUser.id)
+          .eq("local_id", profile.id)
+          .single();
+        if (findError) throw findError;
+        cloudProfileId = existingProfile.id;
+      } else {
+        cloudProfileId = profileData[0].id;
+      }
+
+      // Vincula o ID da nuvem ao perfil local para sync automático
+      const localProfile = state.profiles.find(lp => lp.id === profile.id);
+
+
+
+
+      if (localProfile) {
+        localProfile.cloudId = cloudProfileId;
+      }
+
+      // 2. Upsert das partidas (chave composta id + profile_id já garante unicidade)
+      if (profile.matches.length > 0) {
+        const matchesToInsert = profile.matches.map(m => ({
+          ...(m.id && typeof m.id === 'string' && !m.id.startsWith('m') ? { id: m.id } : {}),
+          profile_id: cloudProfileId,
+          map: m.map,
+          kills: m.kills ?? null,
+          deaths: m.deaths ?? null,
+          time: m.time ?? null,
+          points: m.points ?? null,
+          damage: m.damage ?? null,
+          assists: m.assists ?? null,
+          position: m.position ?? null,
+          kd: m.kd ?? null,
+          kpm: m.kpm ?? null,
+          kpd: m.kpd ?? null,
+          notes: m.notes ?? null,
+          match_number: m.match_number ?? null,
+          match_date: m.match_date ?? null,
+          updated_at: m.updated_at || new Date().toISOString()
+        }));
+        const { data: insertedMatches, error: matchesError } = await supabaseClient
+          .from("matches")
+          .upsert(matchesToInsert, { onConflict: "id" })
+          .select("id");
+        if (matchesError) throw matchesError;
+        insertedMatches.forEach((row, i) => {
+          profile.matches[i].id = row.id;
+        });
+        saveState();
+      }
+
+      // 3. Upsert das metas (unique profile_id + metric_id já existe no banco)
+      const goalsToUpsert = [];
+      for (const key of Object.keys(localStorage)) {
+        if (key.startsWith("goal_") && key.endsWith("_" + profile.id)) {
+          const metricId = key.replace("goal_", "").replace("_" + profile.id, "");
+          const val = parseFloat(localStorage.getItem(key));
+          if (!isNaN(val) && val > 0) {
+            goalsToUpsert.push({
+              profile_id: cloudProfileId,
+              metric_id: metricId,
+              target_value: val
+            });
+          }
+        }
+      }
+      if (goalsToUpsert.length > 0) {
+        const { error: goalsError } = await supabaseClient
+          .from("goals")
+          .upsert(goalsToUpsert, { onConflict: "profile_id,metric_id" });
+        if (goalsError) throw goalsError;
+      }
+    }
+    showToast("✓ Dados salvos na nuvem!");
+    return true;
+  } catch (e) {
+    console.error("Erro ao enviar dados:", e);
+    showToast("⚠ Erro ao enviar dados. Tente novamente.");
+    return false;
+  }
+}
+
+// Sincronização automática em segundo plano — chamada após cada operação
+
+async function syncProfileToCloud(profile) {
+  if (!supabaseClient || !currentUser) return;
+  try {
+    const { data: profileData, error } = await supabaseClient
+      .from("game_profiles")
+      .upsert({
+        user_id: currentUser.id,
+        local_id: profile.id,
+        game: profile.game,
+        mode: profile.mode,
+        server: profile.server,
+        maps: profile.maps,
+        metrics: profile.metrics,
+        next_id: profile.nextId,
+        updated_at: new Date().toISOString()
+      }, { onConflict: "user_id,local_id" })
+      .select()
+      .single();
+    if (error) throw error;
+    profile.cloudId = profileData.id;
+    saveState();
+    showToast("☁ Perfil sincronizado");
+  } catch (e) {
+    console.error("Erro ao sincronizar perfil:", e);
+    showToast(`⚠ Sync do perfil falhou: ${e?.message || "erro desconhecido"}`);
+  }
+}
+
+async function syncToCloud(operation, data) {
+  if (!supabaseClient || !currentUser) {
+    console.log("syncToCloud: offline (sem supabase ou usuário)");
+    return null;
+  }
+  try {
+    let cloudProfileId = null;
+    const profile = getProfile(data.profileId);
+    // Caminho rápido: já temos o ID da nuvem cacheado localmente
+    if (profile?.cloudId) {
+      cloudProfileId = profile.cloudId;
+    } else {
+      // Fallback: busca por local_id (para dados antigos ou primeiro sync)
+      const { data: profileData, error: profileError } = await supabaseClient
+        .from("game_profiles")
+        .select("id")
+        .eq("user_id", currentUser.id)
+        .eq("local_id", data.profileId)
+        .single();
+      if (profileError || !profileData) throw new Error("Perfil não encontrado na nuvem.");
+      cloudProfileId = profileData.id;
+      profile.cloudId = cloudProfileId; // vincula para nunca mais precisar buscar
+    }
+
+    if (operation === "upsert_match") {
+      const matchPayload = {
+        profile_id: cloudProfileId,
+        map: data.match.map,
+        kills: data.match.kills ?? null,
+        deaths: data.match.deaths ?? null,
+        time: data.match.time ?? null,
+        points: data.match.points ?? null,
+        damage: data.match.damage ?? null,
+        assists: data.match.assists ?? null,
+        position: data.match.position ?? null,
+        kd: data.match.kd ?? null,
+        kpm: data.match.kpm ?? null,
+        kpd: data.match.kpd ?? null,
+        notes: data.match.notes ?? null,
+        match_number: data.match.match_number ?? null,
+        match_date: data.match.match_date ?? null,
+        updated_at: new Date().toISOString()
+      };
+      // Só envia o ID se for um UUID do Supabase (não um ID local "m...")
+      if (data.match.id && typeof data.match.id === 'string' && !data.match.id.startsWith('m')) {
+        matchPayload.id = data.match.id;
+      }
+      const { data: insertedMatch, error } = await supabaseClient
+        .from("matches")
+        .upsert(matchPayload, { onConflict: "id" })
+        .select("id")
+        .single();
+      if (error) throw error;
+      if (!insertedMatch || !insertedMatch.id) throw new Error("Banco não confirmou a partida");
+      return insertedMatch.id;
+      
+    } else if (operation === "upsert_matches") {
+      // Envia várias partidas num único upsert => uma só transação.
+      // Com a constraint DEFERRABLE, a checagem de unicidade ocorre no commit,
+      // permitindo trocas de match_number sem colisão temporária (409).
+      const cloudMatches = (data.matches || []).filter(
+        m => m && m.id && typeof m.id === 'string' && !m.id.startsWith('m')
+      );
+      if (cloudMatches.length === 0) return [];
+      const payload = cloudMatches.map(m => ({
+        id: m.id,
+        profile_id: cloudProfileId,
+        map: m.map,
+        kills: m.kills ?? null,
+        deaths: m.deaths ?? null,
+        time: m.time ?? null,
+        points: m.points ?? null,
+        damage: m.damage ?? null,
+        assists: m.assists ?? null,
+        position: m.position ?? null,
+        kd: m.kd ?? null,
+        kpm: m.kpm ?? null,
+        kpd: m.kpd ?? null,
+        notes: m.notes ?? null,
+        match_number: m.match_number ?? null,
+        match_date: m.match_date ?? null,
+        updated_at: new Date().toISOString()
+      }));
+      const { data: rows, error } = await supabaseClient
+        .from("matches")
+        .upsert(payload, { onConflict: "id" })
+        .select("id");
+      if (error) throw error;
+      return rows;
+
+    } else if (operation === "delete_match") {
+      if (data.matchId && typeof data.matchId === 'string' && data.matchId.startsWith('m')) {
+        return null;
+      }
+      const { data: deletedMatch, error } = await supabaseClient
+        .from("matches")
+        .delete()
+        .eq("id", data.matchId)
+        .eq("profile_id", cloudProfileId)
+        .select()
+        .single();
+      if (error) throw error;
+      if (!deletedMatch) throw new Error("Partida não encontrada para deletar na nuvem");
+      showToast("☁ Partida removida da nuvem");
+    } else if (operation === "upsert_goal") {
+      if (data.value > 0) {
+        const { data: goalData, error } = await supabaseClient
+          .from("goals")
+          .upsert({ profile_id: cloudProfileId, metric_id: data.metricId, target_value: data.value },
+            { onConflict: "profile_id,metric_id" })
+          .select()
+          .single();
+        if (error) throw error;
+        if (!goalData) throw new Error("Banco não confirmou a meta");
+      } else {
+        const { data: deletedGoals, error } = await supabaseClient
+          .from("goals")
+          .delete()
+          .eq("profile_id", cloudProfileId)
+          .eq("metric_id", data.metricId)
+          .select();
+        if (error) throw error;
+      }
+      showToast("☁ Meta sincronizada");
+    }
+
+    // Persiste o cloudId assim que é descoberto
+    if (cloudProfileId && profile && !profile.cloudId) {
+      profile.cloudId = cloudProfileId;
+      saveState();
+    } else if (profile && profile.cloudId) {
+      saveState();
+    }
+  } catch (e) {
+    console.error("Erro na sincronização:", e);
+    const msg = e?.message || e?.details || "";
+    const code = e?.code || "";
+    
+    // Erro 403 com "row-level security" = perfil não existe na nuvem ou não pertence ao usuário
+    const isMissingProfile = msg.includes("row-level security") && msg.includes("matches");
+    const isAuthError = msg.includes("JWT") || msg.includes("token") ||
+      msg.includes("session") || msg.includes("401") || msg.includes("403");
+    
+    if (isMissingProfile && cloudProfileId) {
+      // O cloudId está desatualizado. Invalida e tenta recriar o perfil na próxima.
+      invalidateCloudId(data.profileId);
+      showToast("⚠ Perfil não encontrado na nuvem. Reenviando...");
+      // Tenta reenviar o perfil primeiro, depois a partida
+      const profile = getProfile(data.profileId);
+      if (profile) {
+        syncProfileToCloud(profile).then(() => {
+          // Após recriar o perfil, tenta a operação original novamente
+          setTimeout(() => syncToCloud(operation, data), 500);
+        });
+      }
+      return null;
+    }
+    
+    if (isAuthError && !isMissingProfile) {
+      currentUser = null;
+      updateAuthButton();
+      showToast("⚠ Sessão expirada. Faça login novamente.");
+    } else {
+      showToast(`⚠ Sync falhou: ${msg || "erro desconhecido"}`);
+    }
+  }
+}
+
+// Baixa todos os dados do Supabase e substitui o localStorage
+async function downloadCloudData() {
+  if (!supabaseClient || !currentUser) { showToast("⚠ Não está logado"); return false; }
+  showToast("☁ Baixando dados da nuvem...");
+  try {
+    // 1. Busca perfis
+    const { data: profiles, error: profilesError } = await supabaseClient
+      .from("game_profiles")
+      .select("*")
+      .eq("user_id", currentUser.id)
+      .eq("deleted", false);
+    if (profilesError) throw profilesError;
+
+    const newState = { activeProfileId: null, profiles: [] };
+
+    for (const p of profiles) {
+      // 2. Busca partidas do perfil
+      const { data: matches, error: matchesError } = await supabaseClient
+        .from("matches")
+        .select("*")
+        .eq("profile_id", p.id)
+        .order("match_number", { ascending: true });
+      if (matchesError) throw matchesError;
+
+      // 3. Busca metas do perfil
+      const { data: goals, error: goalsError } = await supabaseClient
+        .from("goals")
+        .select("*")
+        .eq("profile_id", p.id);
+      if (goalsError) throw goalsError;
+
+      // Reconstrói o perfil no formato antigo
+      const profile = {
+        id: p.local_id || ("p" + Date.now() + Math.random().toString(36).substr(2, 5)),
+        cloudId: p.id,
+        game: p.game,
+        mode: p.mode,
+        server: p.server,
+        maps: p.maps || [],
+        metrics: p.metrics || [],
+        nextId: p.next_id || 1,
+        matches: (matches || []).map(m => ({
+          id: m.id,
+          map: m.map,
+          kills: m.kills,
+          deaths: m.deaths,
+          time: m.time,
+          points: m.points,
+          damage: m.damage,
+          assists: m.assists,
+          position: m.position,
+          kd: m.kd,
+          kpm: m.kpm,
+          kpd: m.kpd,
+          notes: m.notes ?? "",
+          match_number: m.match_number ?? null,
+          match_date: m.match_date ?? null
+        }))
+      };
+
+      // Restaura as metas no localStorage
+      for (const g of (goals || [])) {
+        localStorage.setItem(`goal_${g.metric_id}_${profile.id}`, g.target_value);
+      }
+
+      normalizeProfileMatches(profile);
+      newState.profiles.push(profile);
+    }
+
+    if (newState.profiles.length > 0) {
+      newState.activeProfileId = newState.profiles[0].id;
+    }
+
+    // Substitui o estado local
+    state = newState;
+    activeProfileId = newState.activeProfileId;
+    saveState();
+    refreshAll();
+    showToast("✓ Dados sincronizados da nuvem!");
+    return true;
+  } catch (e) {
+    console.error("Erro ao baixar dados:", e);
+    showToast("⚠ Erro ao baixar dados. Tente novamente.");
+    return false;
+  }
+}
+
+// Funde dados da nuvem com dados locais sem apagar nenhum dos dois
+
+async function uploadLocalOrphans() {
+  if (!supabaseClient || !currentUser) return;
+  
+  for (const profile of state.profiles) {
+    if (!profile.cloudId) {
+      console.warn(`[SYNC] Pulando órfãos do perfil ${profile.game}: sem cloudId`);
+      continue;
+    }
+    
+    // Busca os IDs que JÁ EXISTEM na nuvem para este perfil
+    const { data: cloudRows, error: fetchErr } = await supabaseClient
+      .from("matches")
+      .select("id")
+      .eq("profile_id", profile.cloudId);
+    
+    if (fetchErr) {
+      console.error(`[SYNC] Falha ao buscar IDs da nuvem para ${profile.game}:`, fetchErr.message);
+      continue; // aborta este perfil; preserva local
+    }
+    
+    const cloudIdSet = new Set((cloudRows || []).map(r => r.id));
+    
+    // Órfão = qualquer partida local cujo ID NÃO existe na nuvem
+    // Cobre tanto IDs temporários "m..." quanto UUIDs herdados de outra conta
+    const orphans = profile.matches.filter(m => {
+      if (!m.id) return true; // sem ID = órfão
+      return !cloudIdSet.has(String(m.id));
+    });
+    
+    if (orphans.length === 0) continue;
+    
+    console.log(`Enviando ${orphans.length} órfãos do perfil ${profile.game} (nuvem tem ${cloudIdSet.size})...`);
+    
+    const BATCH_SIZE = 25;
+    for (let i = 0; i < orphans.length; i += BATCH_SIZE) {
+      const batch = orphans.slice(i, i + BATCH_SIZE);
+      const payloads = batch.map(m => ({
+        profile_id: profile.cloudId,
+        map: m.map,
+        kills: m.kills ?? null,
+        deaths: m.deaths ?? null,
+        time: m.time ?? null,
+        points: m.points ?? null,
+        damage: m.damage ?? null,
+        assists: m.assists ?? null,
+        position: m.position ?? null,
+        kd: m.kd ?? null,
+        kpm: m.kpm ?? null,
+        kpd: m.kpd ?? null,
+        notes: m.notes ?? null,
+        match_number: m.match_number,
+        match_date: m.match_date,
+        updated_at: m.match_date || new Date().toISOString()
+      }));
+      
+      try {
+        const { data: inserted, error } = await supabaseClient
+          .from("matches")
+          .insert(payloads)
+          .select("id");
+          
+        if (error) {
+          console.error("Erro ao enviar órfãos:", error.message);
+          // Se o erro é de RLS no matches, o perfil pode ter sido deletado da nuvem
+          if (error.message && error.message.includes("row-level security")) {
+            console.warn("[SYNC] Perfil pode estar desatualizado na nuvem. Invalidando cloudId...");
+            invalidateCloudId(profile.id);
+            // Tenta recriar o perfil e reenviar
+            await syncProfileToCloud(profile);
+            // Não continue — na próxima vez que uploadLocalOrphans rodar, o perfil estará correto
+            break;
+          }
+          continue;
+        }
+        
+        // Atualizar IDs locais
+        inserted.forEach((row, idx) => {
+          const original = batch[idx];
+          const matchInProfile = profile.matches.find(m => m === original);
+          if (matchInProfile) matchInProfile.id = row.id;
+        });
+        
+      } catch (e) {
+        console.error("Exceção ao enviar órfãos:", e.message);
+      }
+      
+      if (i + BATCH_SIZE < orphans.length) {
+        await new Promise(r => setTimeout(r, 300));
+      }
+    }
+  }
+  
+  saveState();
+}
+
+async function mergeCloudData() {
+  if (!supabaseClient || !currentUser) return false;
+  showToast("☁ Sincronizando dados...");
+  try {
+    // PRIMEIRO: garantir que todos os perfis locais existam na nuvem
+    await syncMissingProfilesToCloud();
+    
+    // DEPOIS: enviar órfãos locais (agora com cloudId válido)
+    await uploadLocalOrphans();
+    
+    const { data: profiles, error: profilesError } = await supabaseClient
+      .from("game_profiles")
+      .select("*")
+      .eq("user_id", currentUser.id)
+      .eq("deleted", false);
+    if (profilesError) throw profilesError;
+
+    for (const p of profiles) {
+      const { data: matches, error: matchesError } = await supabaseClient
+        .from("matches")
+        .select("*")
+        .eq("profile_id", p.id)
+        .order("match_number", { ascending: true });
+      if (matchesError) throw matchesError;
+
+      const { data: goals, error: goalsError } = await supabaseClient
+        .from("goals")
+        .select("*")
+        .eq("profile_id", p.id);
+      if (goalsError) throw goalsError;
+
+      // Preserva updated_at vindo da nuvem para comparação futura
+      const cloudMatches = (matches || []).map(m => ({
+        id: m.id, map: m.map, kills: m.kills, deaths: m.deaths,
+        time: m.time, points: m.points, damage: m.damage,
+        assists: m.assists, position: m.position, kd: m.kd,
+        kpm: m.kpm, kpd: m.kpd, notes: m.notes ?? "",
+        match_number: m.match_number ?? null,
+        match_date: m.match_date ?? null,
+        updated_at: m.updated_at || m.created_at
+      }))
+
+      const localProfile = state.profiles.find(lp => lp.id === p.local_id);
+
+      if (localProfile) {
+        // Monta índices para comparação eficiente
+        const cloudById = new Map(cloudMatches.map(m => [m.id, m]));
+        const localById = new Map(
+          localProfile.matches
+            .filter(m => typeof m.id === 'string' && !m.id.startsWith('m'))
+            .map(m => [m.id, m])
+        );
+
+        const mergedMatches = [];
+
+        // Para cada partida da nuvem, decide qual versão é mais recente
+        for (const cloudMatch of cloudMatches) {
+          const localMatch = localById.get(cloudMatch.id);
+          if (!localMatch) {
+            // Partida existe só na nuvem: usa a versão da nuvem
+            mergedMatches.push(cloudMatch);
+            continue;
+          }
+          const cloudTime = new Date(cloudMatch.updated_at || 0).getTime();
+          const localTime = new Date(localMatch.updated_at || 0).getTime();
+          if (localTime > cloudTime) {
+            // Local é mais recente: envia para a nuvem e usa local
+            syncToCloud("upsert_match", { profileId: localProfile.id, match: localMatch });
+            mergedMatches.push(localMatch);
+          } else {
+            // Nuvem é mais recente ou igual: usa nuvem, mas preserva match_number local se a nuvem vier sem
+            if ((cloudMatch.match_number === null || cloudMatch.match_number === undefined) && localMatch.match_number !== null) {
+              cloudMatch.match_number = localMatch.match_number;
+              cloudMatch.match_date = localMatch.match_date || cloudMatch.match_date;
+            }
+            mergedMatches.push(cloudMatch);
+          }
+        }
+
+        // Partidas locais que ainda não chegaram à nuvem (ID temporário m...)
+
+        const localOnlyMatches = localProfile.matches.filter(m =>
+          typeof m.id === 'string' && m.id.startsWith('m')
+        );
+
+        localProfile.matches = [...mergedMatches, ...localOnlyMatches];
+        normalizeProfileMatches(localProfile);
+        localProfile.cloudId = p.id;
+
+      } else {
+        // Perfil só existe na nuvem: cria localmente
+        const profile = {
+          id: p.local_id || ("p" + Date.now() + Math.random().toString(36).substr(2, 5)),
+          cloudId: p.id,
+          game: p.game, mode: p.mode, server: p.server,
+          maps: p.maps || [], metrics: p.metrics || [],
+          matches: cloudMatches
+        };
+        for (const g of (goals || [])) {
+          localStorage.setItem(`goal_${g.metric_id}_${profile.id}`, g.target_value);
+        }
+        state.profiles.push(profile);
+      }
+    }
+
+    // ─── REMOÇÃO DE ÓRFÃOS: perfis deletados em outro dispositivo ───
+    const cloudIds = new Set(profiles.map(p => p.id));
+    const cloudLocalIds = new Set(profiles.map(p => p.local_id));
+    const orphans = state.profiles.filter(lp => {
+      // Se o perfil local tem cloudId mas esse ID não existe na nuvem → foi deletado
+      if (lp.cloudId && !cloudIds.has(lp.cloudId)) return true;
+      // Se o perfil local NÃO tem cloudId mas seu local_id existe na nuvem → já foi recriado, não é órfão
+      if (!lp.cloudId && cloudLocalIds.has(lp.id)) return false;
+      return false;
+    });
+    
+    if (orphans.length > 0) {
+      console.log(`[MERGE] Removendo ${orphans.length} perfil(is) deletado(s) na nuvem:`, orphans.map(p => p.game));
+      state.profiles = state.profiles.filter(lp => {
+        if (lp.cloudId && !cloudIds.has(lp.cloudId)) return false;
+        return true;
+      });
+      showToast(`🗑 ${orphans.length} perfil(s) removido(s) — deletado em outro dispositivo`);
+    }
+
+    if (!state.activeProfileId && state.profiles.length > 0) {
+      state.activeProfileId = state.profiles[0].id;
+      activeProfileId = state.activeProfileId;
+    }
+
+    saveState();
+    const activeTab = document.querySelector(".tab-btn.active");
+    const tabs = ["dashboard","log","add","profiles"];
+    const idx = [...document.querySelectorAll(".tab-btn")].indexOf(activeTab);
+    const currentTab = tabs[idx] || "dashboard";
+    if (currentTab !== "add") {
+      refreshAll();
+    } else {
+      renderProfileSelector();
+    }
+    showToast("✓ Dados sincronizados!");
+    return true;
+  } catch (e) {
+    console.error("Erro ao sincronizar:", e);
+    showToast("⚠ Erro ao sincronizar. Tente novamente.");
+    return false;
+  }
+}
+
+
+
+// Pergunta ao usuário o que fazer quando loga pela primeira vez
+
+async function promptFirstSync() {
+  try {
+    const hasCloud = await hasCloudData();
+    const hasLocal = state.profiles.length > 0 && state.profiles.some(p => p.matches.length > 0);
+
+    // Sem nada para sincronizar — não faz nada
+    if (!hasCloud && !hasLocal) {
+      console.log("Nenhum dado local ou na nuvem para sincronizar.");
+      return;
+    }
+
+    // Usuário já tem dados na nuvem e não tem nada local — baixa silenciosamente
+    // (não há risco de perda de dados locais)
+    if (hasCloud && !hasLocal) {
+      const downloaded = await downloadCloudData();
+      if (!downloaded) {
+        showToast("⚠ Falha ao baixar dados da nuvem.");
+      }
+      return;
+    }
+
+    // Usuário já aceitou ou já sincronizou antes — faz merge silencioso
+    const jaConsentiu = localStorage.getItem("sync_consented") === "true";
+    if (jaConsentiu) {
+      const merged = await mergeCloudData();
+      if (!merged) {
+        showToast("⚠ Falha ao sincronizar. Seus dados locais estão seguros.");
+      }
+      return;
+    }
+
+    // Primeira vez com dados locais — exige consentimento
+    showSyncConsentModal(hasCloud);
+
+  } catch (e) {
+    console.error("Erro em promptFirstSync:", e);
+    showToast("⚠ Erro na sincronização automática. Use o botão ☁ Sync manualmente.");
+  }
+}
+
+function showSyncConsentModal(hasCloud) {
+  // Fecha qualquer modal aberto
+  closeModal();
+
+  document.getElementById("modal-title").textContent = "Salvar seus dados na nuvem?";
+  document.getElementById("modal-body").innerHTML = `
+    <p style="font-size:13px;color:var(--sub);line-height:1.7;margin-bottom:16px;">
+      Ao confirmar, seus perfis, partidas e metas serão enviados com segurança para os servidores do AimData.
+    </p>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;">
+      <div style="display:flex;align-items:flex-start;gap:10px;">
+        <span style="color:var(--confirm);font-size:14px;flex-shrink:0;">✓</span>
+        <span style="font-size:13px;color:var(--text);">Acesse seus dados em qualquer dispositivo</span>
+      </div>
+      <div style="display:flex;align-items:flex-start;gap:10px;">
+        <span style="color:var(--confirm);font-size:14px;flex-shrink:0;">✓</span>
+        <span style="font-size:13px;color:var(--text);">Recupere tudo se trocar de navegador ou computador</span>
+      </div>
+      <div style="display:flex;align-items:flex-start;gap:10px;">
+        <span style="color:var(--confirm);font-size:14px;flex-shrink:0;">✓</span>
+        <span style="font-size:13px;color:var(--text);">Nunca perca uma partida registrada por falha local</span>
+      </div>
+    </div>
+    <p style="font-size:12px;color:var(--muted);line-height:1.6;">
+      Se preferir decidir depois, use o botão <strong style="color:var(--action);">Sync</strong> a qualquer momento.
+    </p>
+  `;
+  document.getElementById("modal-actions").innerHTML = `
+    <button class="modal-cancel" onclick="recusarSync()">Agora não</button>
+    <button class="modal-save" onclick="aceitarSync(${hasCloud})">Salvar na nuvem</button>
+  `;
+  document.getElementById("modal-overlay").classList.add("open");
+}
+
+async function aceitarSync(hasCloud) {
+  closeModal();
+  localStorage.setItem("sync_consented", "true");
+  clearSyncPending();
+  if (hasCloud) {
+    const merged = await mergeCloudData();
+    if (!merged) showToast("⚠ Falha ao sincronizar. Tente o botão Sync.");
+  } else {
+    const uploaded = await uploadLocalData();
+    if (!uploaded) showToast("⚠ Falha ao enviar dados. Tente o botão Sync.");
+  }
+}
+
+function recusarSync() {
+  closeModal();
+  markSyncPending();
+  showToast("✓ Tudo bem. Use o botão Sync quando quiser salvar na nuvem.");
+}
+
+function markSyncPending() {
+  localStorage.setItem("sync_pending", "true");
+  const btn = document.getElementById("syncBtn");
+  if (btn) btn.classList.add("sync-pending");
+}
+
+function clearSyncPending() {
+  localStorage.removeItem("sync_pending");
+  const btn = document.getElementById("syncBtn");
+  if (btn) btn.classList.remove("sync-pending");
+}
+
+let isSyncing = false;
+
+async function handleManualSync() {
+  if (!currentUser) { showToast("⚠ Faça login primeiro"); return; }
+  if (isSyncing) { showToast("⏳ Sincronização já em andamento"); return; }
+  
+  isSyncing = true;
+  const btn = document.getElementById("syncBtn");
+  if (btn) {
+    btn.textContent = "☁ ...";
+    btn.classList.remove("sync-pending");
+    btn.disabled = true;
+  }
+  localStorage.setItem("sync_consented", "true");
+  clearSyncPending();
+  
+  try {
+    await mergeCloudData();
+  } catch (e) {
+    console.error("Erro no sync manual:", e);
+    showToast("⚠ Falha na sincronização. Verifique o console.");
+  } finally {
+    isSyncing = false;
+    if (btn) {
+      btn.textContent = "☁ Sync";
+      btn.disabled = false;
+    }
+  }
+}
+
+/* ============================================================
+   AUTENTICAÇÃO SUPABASE
+   Login com Discord, logout e controle de estado do usuário.
+   ============================================================ */
+let currentUser = null;
+async function checkAuth() {
+  if (!supabaseClient) return;
+  try {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (session?.user) {
+      currentUser = session.user;
+      
+      // Carrega estado da chave correta (com user_id)
+      state = loadState();
+      activeProfileId = state.activeProfileId || null;
+      
+      updateAuthButton();
+
+      // Se já tem dados locais, renderiza imediatamente
+      // Se não tem, aguarda o sync antes de renderizar
+      if (state.profiles.length > 0) {
+        refreshAll();
+      }
+
+      setTimeout(() => promptFirstSync(), 500);
+      setTimeout(() => checkOfflineMerge(), 1200);
+    } else {
+      currentUser = null;
+      
+      // Carrega estado offline
+      state = loadState();
+      activeProfileId = state.activeProfileId || null;
+      
+      updateAuthButton();
+      refreshAll();
+    }
+  } catch (e) {
+    console.error("Erro ao verificar sessão:", e);
+    currentUser = null;
+    state = loadState();
+    activeProfileId = state.activeProfileId || null;
+  }
+
+  supabaseClient.auth.onAuthStateChange((event, session) => {
+    if (event === 'SIGNED_IN' && session?.user) {
+      const isNewLogin = !currentUser || currentUser.id !== session.user.id;
+      currentUser = session.user;
+      updateAuthButton();
+      if (isNewLogin) {
+        // Carrega estado da chave correta (acabamos de logar)
+        state = loadState();
+        activeProfileId = state.activeProfileId || null;
+        editingMatchId = null;
+        refreshAll();
+        setTimeout(() => promptFirstSync(), 500);
+        setTimeout(() => checkOfflineMerge(), 1200);
+      }
+    } else if (event === 'SIGNED_OUT' || (event === 'TOKEN_REFRESHED' && !session)) {
+      currentUser = null;
+      state = loadState();
+      activeProfileId = state.activeProfileId || null;
+      editingMatchId = null;
+      offlineMergeChecked = false;
+      updateAuthButton();
+      refreshAll();
+      showToast("⚠ Sessão encerrada. Faça login novamente.");
+    } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+      currentUser = session.user;
+    }
+  });
+}
+
+function updateAuthButton() {
+  const btn = document.getElementById("authBtn");
+  if (!btn) return;
+  if (currentUser) {
+    const syncBtn = document.getElementById("syncBtn");
+    if (syncBtn) {
+      syncBtn.style.display = "";
+      // Restaura visual de pendente se o usuário havia recusado o sync
+      if (localStorage.getItem("sync_pending") === "true") {
+        syncBtn.classList.add("sync-pending");
+      } else {
+        syncBtn.classList.remove("sync-pending");
+      }
+    }
+    const name = currentUser.user_metadata?.full_name || currentUser.user_metadata?.name || "Usuário";
+    btn.textContent = "⏏ " + name;
+    btn.onclick = handleLogout;
+  } else {
+    const syncBtn = document.getElementById("syncBtn");
+    if (syncBtn) syncBtn.style.display = "none";
+    btn.textContent = "Entrar";
+    btn.onclick = handleAuthClick;
+  }
+}
+
+async function handleAuthClick() {
+  if (!supabaseClient) {
+    showToast("⚠ Conexão indisponível. Verifique sua internet.");
+    return;
+  }
+  const btn = document.getElementById("authBtn");
+  btn.textContent = "Conectando...";
+  btn.disabled = true;
+// Substitua pela URL exata da sua página no Systeme.io
+const REDIRECT_URL = "https://aimdata.pages.dev/";
+
+const { error } = await supabaseClient.auth.signInWithOAuth({
+  provider: "discord",
+  options: { redirectTo: REDIRECT_URL }
+});
+  if (error) {
+    btn.textContent = "Entrar";
+    btn.disabled = false;
+    showToast("⚠ Erro ao conectar com Discord");
+    console.error(error);
+  }
+}
+
+async function handleLogout() {
+  if (!confirm("Sair da conta? Seus dados locais permanecem no navegador.")) return;
+  if (!supabaseClient) return;
+  await supabaseClient.auth.signOut();
+  currentUser = null;
+  state = loadState();
+  activeProfileId = state.activeProfileId || null;
+  editingMatchId = null;
+  offlineMergeChecked = false;
+  updateAuthButton();
+  refreshAll();
+  showToast("✓ Desconectado");
+}
+
+
+/* ============================================================
+   INICIALIZAÇÃO
+   Executado uma vez quando a página carrega.
+   ============================================================ */
+
+document.addEventListener("click", function(e) {
+  const wrapper = document.getElementById("settingsBtn")?.closest(".settings-wrapper");
+  if (wrapper && !wrapper.contains(e.target)) {
+    closeSettingsDropdown();
+  }
+});
+
+try {
+  renderProfileSelector();
+  renderDashboard();
+} catch (e) {
+  console.error("Erro ao renderizar dashboard:", e);
+  document.getElementById("dash-inner").innerHTML = 
+    `<div class="empty-state"><div class="e-icon">⚠</div><div class="e-title">Erro ao carregar</div><div class="e-sub">Tente recarregar a página (F5)</div></div>`;
+}
+
+try {
+  checkAuth();
+} catch (e) {
+  console.error("Erro ao verificar auth:", e);
+}
+</script>
