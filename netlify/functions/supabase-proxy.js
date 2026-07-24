@@ -2,7 +2,7 @@ exports.handler = async (event, context) => {
   try {
     const url = new URL(event.rawUrl);
     
-    const targetPath = url.pathname.replace(/^\/\.netlify\/functionS\/supabase-proxy/, "");
+    const targetPath = url.pathname.replace(/^\/\.netlify\/functions\/supabase-proxy/, "");
     const supabaseHost = process.env.SUPABASE_HOST || "yvybixhnsxvpwhfyvsgb.supabase.co";
     const targetUrl = `https://${supabaseHost}${targetPath}${url.search}`;
 
