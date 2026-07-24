@@ -1,7 +1,9 @@
 exports.handler = async (event, context) => {
   const url = new URL(event.rawUrl);
   
-  const targetPath = url.pathname.replace(/^\/api\/supabase/, "");
+  // O redirect manda: /.netlify/functionS/supabase-proxy/auth/v1/user
+  // Precisamos extrair o path real removendo o prefixo da função
+  const targetPath = url.pathname.replace(/^\/\.netlify\/functionS\/supabase-proxy/, "");
   const supabaseHost = process.env.SUPABASE_HOST || "yvybixhnsxvpwhfyvsgb.supabase.co";
   const targetUrl = `https://${supabaseHost}${targetPath}${url.search}`;
 
