@@ -3726,7 +3726,7 @@ async function handleAuthClick() {
   btn.textContent = "Conectando...";
   btn.disabled = true;
 // Substitua pela URL exata da sua página no Systeme.io
-const REDIRECT_URL = "https://aimdatamain.github.io/aimdata/";
+const REDIRECT_URL = "https://aimdata.netlify.app/";
 
 const { error } = await supabaseClient.auth.signInWithOAuth({
   provider: "discord",
