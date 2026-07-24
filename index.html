@@ -701,7 +701,7 @@ function initSupabase() {
           if (urlStr.includes('yvybixhnsxvpwhfyvsgb.supabase.co')) {
             const supabaseUrl = new URL(urlStr);
             const pathAndQuery = supabaseUrl.pathname + supabaseUrl.search;
-            const newUrl = "/.netlify/functionS/supabase-proxy" + pathAndQuery;
+            const newUrl = "/.netlify/functions/supabase-proxy" + pathAndQuery;
             return originalFetch(newUrl, options);
           }
           return originalFetch(urlStr, options);
