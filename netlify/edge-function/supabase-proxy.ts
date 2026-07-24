@@ -10,6 +10,11 @@ export default async (request: Request, context: Context) => {
   const headers = new Headers(request.headers);
   headers.delete("host");
 
+  // REMOVE qualquer chave fake que o cliente enviou
+  headers.delete("apikey");
+  headers.delete("authorization");
+
+  // ADICIONA a chave REAL do ambiente do Netlify
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
   if (anonKey) {
     headers.set("apikey", anonKey);
