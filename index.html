@@ -693,7 +693,7 @@ function initSupabase() {
     if (typeof window.supabase !== 'undefined' && window.supabase.createClient) {
       supabaseClient = window.supabase.createClient(
         "https://yvybixhnsxvpwhfyvsgb.supabase.co",
-        "public"
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2eWJpeGhuc3h2cHdoZnl2c2diIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0MTY2NTcsImV4cCI6MjA5Nzk5MjY1N30.PqC9pTYLYEfWfYLp7FONFfqnau2mwRvbucVbMILBC7Y"
       );
       console.log("✓ Supabase conectado");
       return true;
