@@ -694,8 +694,31 @@ let supabaseClient = null;
 function initSupabase() {
   try {
     if (typeof window.supabase !== 'undefined' && window.supabase.createClient) {
-      supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-      console.log("✓ Supabase conectado");
+      
+      const proxyFetch = (originalFetch) => {
+        return function(url, options = {}) {
+          const urlStr = url.toString ? url.toString() : url;
+          if (urlStr.includes('yvybixhnsxvpwhfyvsgb.supabase.co')) {
+            const newUrl = urlStr.replace(
+              'https://yvybixhnsxvpwhfyvsgb.supabase.co',
+              '/api/supabase'
+            );
+            return originalFetch(newUrl, options);
+          }
+          return originalFetch(urlStr, options);
+        };
+      };
+
+      supabaseClient = window.supabase.createClient(
+        "https://yvybixhnsxvpwhfyvsgb.supabase.co",
+        "public",
+        {
+          global: {
+            fetch: proxyFetch(fetch)
+          }
+        }
+      );
+      console.log("✓ Supabase conectado via proxy");
       return true;
     } else {
       console.warn("Biblioteca Supabase não disponível. Modo offline.");
