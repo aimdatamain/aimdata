@@ -684,10 +684,10 @@ function getStorageKey() {
   return currentUser ? `gt_v1_${currentUser.id}` : "gt_v1";
 }
 /* === SUPABASE CONFIG === */
-const SUPABASE_URL = "https://yvybixhnsxvpwhfyvsgb.supabase.co";
+const SUPABASE_URL = "/api/supabase";
 // Chave injetada pelo servidor via variável de ambiente
 // Se não houver chave, o modo offline funciona normalmente
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2eWJpeGhuc3h2cHdoZnl2c2diIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0MTY2NTcsImV4cCI6MjA5Nzk5MjY1N30.PqC9pTYLYEfWfYLp7FONFfqnau2mwRvbucVbMILBC7Y";
+const SUPABASE_ANON_KEY = "public";
 
 let supabaseClient = null;
 
