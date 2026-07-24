@@ -699,10 +699,9 @@ function initSupabase() {
         return function(url, options = {}) {
           const urlStr = url.toString ? url.toString() : url;
           if (urlStr.includes('yvybixhnsxvpwhfyvsgb.supabase.co')) {
-            const newUrl = urlStr.replace(
-              'https://yvybixhnsxvpwhfyvsgb.supabase.co',
-              '/api/supabase'
-            );
+            const supabaseUrl = new URL(urlStr);
+            const pathAndQuery = supabaseUrl.pathname + supabaseUrl.search;
+            const newUrl = "/.netlify/functionS/supabase-proxy" + pathAndQuery;
             return originalFetch(newUrl, options);
           }
           return originalFetch(urlStr, options);
