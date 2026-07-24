@@ -1,5 +1,6 @@
 exports.handler = async (event, context) => {
   console.log("=== PROXY CALLED ===");
+  console.log("=== FUNCTION CALLED ===");
   console.log("Method:", event.httpMethod);
   console.log("Path:", event.path);
   console.log("Raw URL:", event.rawUrl);
