@@ -6,11 +6,6 @@ exports.handler = async (event, context) => {
     const supabaseHost = process.env.SUPABASE_HOST || "yvybixhnsxvpwhfyvsgb.supabase.co";
     const targetUrl = `https://${supabaseHost}${targetPath}${url.search}`;
 
-    console.log("=== PROXY CALLED ===");
-    console.log("Target URL:", targetUrl);
-    console.log("Method:", event.httpMethod);
-    console.log("Key exists:", !!process.env.SUPABASE_ANON_KEY);
-
     const headers = {};
     for (const [key, value] of Object.entries(event.headers)) {
       if (key.toLowerCase() !== "host" && value !== undefined && value !== null) {
@@ -18,15 +13,21 @@ exports.handler = async (event, context) => {
       }
     }
 
-    delete headers["apikey"];
-    delete headers["authorization"];
-
+    // SEMPRE envia a chave anônima no apikey
     const anonKey = process.env.SUPABASE_ANON_KEY;
     if (anonKey) {
       headers["apikey"] = anonKey;
+    }
+
+    // PRESERVA o token de usuário no authorization se existir
+    // (necessário para rotas autenticadas como /auth/v1/user)
+    // Só usa Bearer + chave anônima se não houver token de usuário
+    const userAuth = headers["authorization"];
+    if (!userAuth && anonKey) {
       headers["authorization"] = `Bearer ${anonKey}`;
     }
 
+    // NÃO passa body em GET/HEAD
     const fetchOptions = {
       method: event.httpMethod,
       headers,
@@ -37,9 +38,7 @@ exports.handler = async (event, context) => {
 
     const response = await fetch(targetUrl, fetchOptions);
 
-    console.log("Supabase status:", response.status);
-
-    // REMOVE headers de encoding para evitar ERR_CONTENT_DECODING_FAILED
+    // REMOVE headers de encoding
     const responseHeaders = {};
     if (response.headers && typeof response.headers.forEach === 'function') {
       response.headers.forEach((value, key) => {
