@@ -684,10 +684,7 @@ function getStorageKey() {
   return currentUser ? `gt_v1_${currentUser.id}` : "gt_v1";
 }
 /* === SUPABASE CONFIG === */
-const SUPABASE_URL = "/api/supabase";
-// Chave injetada pelo servidor via variável de ambiente
-// Se não houver chave, o modo offline funciona normalmente
-const SUPABASE_ANON_KEY = "public";
+// Cliente inicializado diretamente em initSupabase()
 
 let supabaseClient = null;
 
