@@ -77,7 +77,7 @@ button:hover{filter:brightness(1.2);}
   border-bottom:2px solid transparent;cursor:pointer;transition:all .15s;white-space:nowrap;}
 .tab-btn.active{color:var(--brand);border-bottom:2px solid var(--brand);}
 .tab-btn:hover:not(.active){color:var(--text);}
-#content{padding:20px;flex:1;}
+#content{padding:45px;flex:1;}
 .pane{display:none;}
 .pane.active{display:block;}
 .card{background:var(--surface);border:1px solid var(--border);padding:18px 20px;margin-bottom:16px;}
@@ -481,13 +481,16 @@ hr.divider{border:none;border-top:1px solid var(--border);margin:16px 0;}
 }
 
 /* === BOTÃO LATERAL — NOVA PARTIDA === */
+#match-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;display:none;align-items:center;justify-content:center;padding:20px;}
+#match-modal-overlay.open{display:flex;}
+#match-modal{background:var(--surface);border:1px solid var(--border);width:100%;max-width:480px;max-height:90vh;overflow-y:auto;padding:24px;}
 #fab-nova-partida {
   position: fixed;
   left: 0;
   top: 50%;
   transform: translateY(-50%);
-  width: 44px;
-  min-height: 160px;
+  width: 37px;
+  min-height: 94px;
   background: var(--brand);
   color: #000;
   font-family: 'Rajdhani', sans-serif;
@@ -496,14 +499,14 @@ hr.divider{border:none;border-top:1px solid var(--border);margin:16px 0;}
   letter-spacing: 2px;
   text-transform: uppercase;
   border: none;
-  border-radius: 0 4px 4px 0;
-  padding: 16px 0;
+  border-radius: 0 10px 10px 0;
+  padding: 12px 0;
   cursor: pointer;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 6px;
   box-shadow: 2px 0 10px rgba(0,0,0,0.35);
   z-index: 100;
   transition: filter .15s;
@@ -512,7 +515,7 @@ hr.divider{border:none;border-top:1px solid var(--border);margin:16px 0;}
   filter: brightness(1.15);
 }
 #fab-nova-partida .fab-icon {
-  font-size: 20px;
+  font-size: 18px;
   line-height: 1;
   font-style: normal;
 }
@@ -520,7 +523,7 @@ hr.divider{border:none;border-top:1px solid var(--border);margin:16px 0;}
   writing-mode: vertical-rl;
   text-orientation: upright;
   letter-spacing: 1px;
-  font-size: 10px;
+  font-size: 13px;
 }
 
 /* Remove todas as regras nth-child anteriores e substitui por: */
@@ -617,9 +620,9 @@ hr.divider{border:none;border-top:1px solid var(--border);margin:16px 0;}
     </div>
   </div>
 
-  <button id="fab-nova-partida" onclick="setTab('add')" title="Registrar nova partida">
+  <button id="fab-nova-partida" onclick="openAddMatchModal()" title="Registrar nova partida">
     <span class="fab-icon">＋</span>
-    <span class="fab-text">Nova Partida</span>
+    <span class="fab-text">Partida</span>
   </button>
 
   <div id="main-area">
@@ -647,16 +650,16 @@ hr.divider{border:none;border-top:1px solid var(--border);margin:16px 0;}
       </div>
     </div>
 
-    <div id="pane-add" class="pane">
-      <div class="form-wrap">
-        <div class="card">
-          <div class="card-title">Registrar Nova Partida</div>
-          <div id="addFormFields"></div>
-          <div class="preview-box" id="preview" style="display:none"></div>
-          <button class="submit-btn" onclick="addMatch()">Registrar Partida</button>
-        </div>
-      </div>
+<div id="match-modal-overlay" onclick="closeAddMatchModalOutside(event)">
+  <div id="match-modal">
+    <div class="modal-title">Registrar Nova Partida</div>
+    <div id="match-modal-body"></div>
+    <div class="modal-actions" id="match-modal-actions">
+      <button class="modal-cancel" onclick="closeAddMatchModal()">Cancelar</button>
+      <button class="modal-save" onclick="addMatch()">Registrar Partida</button>
     </div>
+  </div>
+</div>
 
     <div id="pane-profiles" class="pane">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
@@ -1331,11 +1334,8 @@ function setTab(name) {
   if (idx >= 0) {
     document.querySelectorAll(".tab-btn")[idx].classList.add("active");
   }
-  const fab = document.getElementById("fab-nova-partida");
-  if (fab) fab.style.display = name === "add" ? "none" : "flex";
   if (name === "dashboard") renderDashboard();
   if (name === "log")       renderLog();
-  if (name === "add")       renderAddForm();
   if (name === "profiles")  renderProfilesPane();
 }
 
@@ -1947,19 +1947,22 @@ function duplicateMatch(id) {
    Monta o formulário de registro e o preview ao vivo
    dos valores calculados (K/D, KPM, KPD).
    ============================================================ */
-function renderAddForm() {
+function renderAddMatchForm() {
   const profile = getActiveProfile();
+  const body = document.getElementById("match-modal-body");
   if (!profile) {
-    document.getElementById("addFormFields").innerHTML = `<div class="empty-state" style="padding:32px 20px;"><div class="e-icon">🎮</div><div class="e-title">Nenhum perfil ativo</div><div class="e-sub">Crie um perfil na aba "Perfis" antes de adicionar partidas</div></div>`;
-    document.getElementById("preview").style.display = "none";
+    body.innerHTML = `<div class="empty-state" style="padding:32px 20px;"><div class="e-icon">🎮</div><div class="e-title">Nenhum perfil ativo</div><div class="e-sub">Crie um perfil na aba "Perfis" antes de adicionar partidas</div></div>`;
     return;
   }
 
   const isFirstMatch = profile.matches.length === 0;
   const inputMetrics = profile.metrics.filter(m => METRIC_MAP[m]?.type === "input");
   const calcMetrics = profile.metrics.filter(m => METRIC_MAP[m]?.type === "calc");
-  let html = `<div class="field"><label>Mapa</label><select id="f-map">${profile.maps.map(m=>`<option>${m}</option>`).join("")}</select></div>`;
+  
+  let html = `<div class="form-wrap" style="max-width:none;margin:0;">`;
+  html += `<div class="field"><label>Mapa</label><select id="f-map">${profile.maps.map(m=>`<option>${m}</option>`).join("")}</select></div>`;
   html += `<div class="field" style="margin-bottom:12px;"><label>Anotações</label><textarea id="f-notes" rows="3" placeholder="Como foi a partida? O que aprendeu?"></textarea></div>`;
+  
   for (let i = 0; i < inputMetrics.length; i += 2) {
     html += `<div class="form-row" style="margin-bottom:12px;">`;
     for (let j = i; j < Math.min(i+2,inputMetrics.length); j++) {
@@ -1968,15 +1971,19 @@ function renderAddForm() {
     }
     html += `</div>`;
   }
+  
   if (isFirstMatch) {
     html += `<div style="background:rgba(0,229,255,0.05);border:1px solid var(--brand);padding:12px 16px;margin-top:16px;font-size:12px;color:var(--sub);">
       <strong style="color:var(--brand);">💡 Dica:</strong> Registre os dados logo após a partida para não esquecer. Você pode editar depois se precisar.
     </div>`;
   }
-  document.getElementById("addFormFields").innerHTML = html;
-  const previewBox = document.getElementById("preview");
-  previewBox.innerHTML = calcMetrics.map(m => `<div class="preview-item"><div class="p-label">${METRIC_MAP[m].label}</div><div class="p-val" id="prev-${m}" style="color:var(--sub)">—</div></div>`).join("");
-  previewBox.style.display = calcMetrics.length ? "flex" : "none";
+  
+  html += `<div class="preview-box" id="preview" style="display:${calcMetrics.length ? 'flex' : 'none'};margin-top:14px;">`;
+  html += calcMetrics.map(m => `<div class="preview-item"><div class="p-label">${METRIC_MAP[m].label}</div><div class="p-val" id="prev-${m}" style="color:var(--sub)">—</div></div>`).join("");
+  html += `</div></div>`;
+  
+  body.innerHTML = html;
+  updatePreview();
 }
 
 function updatePreview() {
@@ -2104,7 +2111,8 @@ async function addMatch() {
   const summary = summaryMetrics.map(m => `${METRIC_MAP[m].label} ${match[m]}`).join(" · ");
   showToast(summary ? `✓ Partida salva — ${summary}` : "✓ Partida salva");
   console.log("=== addMatch CONCLUÍDO ===");
-  setTab("dashboard");
+  closeAddMatchModal();
+  refreshAll();
 }
 
 
@@ -2252,6 +2260,19 @@ function closeModalOutside(e) { if(e.target===document.getElementById("modal-ove
    Funções de controle dos sub-componentes do dashboard:
    ordenação da tabela de mapas e troca de aba de evolução.
    ============================================================ */
+
+function openAddMatchModal() {
+  document.getElementById("match-modal-overlay").classList.add("open");
+  renderAddMatchForm();
+}
+
+function closeAddMatchModal() {
+  document.getElementById("match-modal-overlay").classList.remove("open");
+}
+
+function closeAddMatchModalOutside(e) {
+  if (e.target === document.getElementById("match-modal-overlay")) closeAddMatchModal();
+}
 
 function calcAdaptiveEvolution(values, isInverted) {
   // values: array de números (ex: todos os K/D da vida do jogador)
