@@ -50,7 +50,6 @@ button:hover{filter:brightness(1.2);}
 ::-webkit-scrollbar-thumb{background:var(--border);}
 #app{display:flex;flex-direction:column;min-height:100vh;}
 #main-area{display:flex;flex:1;}
-#sidebar{width:56px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;padding:20px 0;flex-shrink:0;}
 #header{background:var(--surface);border-bottom:1px solid var(--border);
   padding:12px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
 .logo{display:flex;align-items:center;gap:10px;flex-shrink:0;}
@@ -482,10 +481,47 @@ hr.divider{border:none;border-top:1px solid var(--border);margin:16px 0;}
 }
 
 /* === BOTÃO LATERAL — NOVA PARTIDA === */
-#fab-nova-partida{position:static;width:44px;min-height:140px;background:var(--brand);color:#000;font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;border:none;padding:14px 0;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;box-shadow:none;writing-mode:vertical-rl;text-orientation:mixed;transition:filter .15s;}
-#fab-nova-partida:hover{filter:brightness(1.15);}
-#fab-nova-partida:active{transform:none;box-shadow:none;}
-#fab-nova-partida .fab-icon{font-size:18px;line-height:1;font-style:normal;writing-mode:horizontal-tb;}
+#fab-nova-partida {
+  position: fixed;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  min-height: 160px;
+  background: var(--brand);
+  color: #000;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  border: none;
+  border-radius: 0 4px 4px 0;
+  padding: 16px 0;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  box-shadow: 2px 0 10px rgba(0,0,0,0.35);
+  z-index: 100;
+  transition: filter .15s;
+}
+#fab-nova-partida:hover {
+  filter: brightness(1.15);
+}
+#fab-nova-partida .fab-icon {
+  font-size: 20px;
+  line-height: 1;
+  font-style: normal;
+}
+#fab-nova-partida .fab-text {
+  writing-mode: vertical-rl;
+  text-orientation: upright;
+  letter-spacing: 1px;
+  font-size: 10px;
+}
 
 /* Remove todas as regras nth-child anteriores e substitui por: */
 .log-table {
@@ -581,12 +617,12 @@ hr.divider{border:none;border-top:1px solid var(--border);margin:16px 0;}
     </div>
   </div>
 
+  <button id="fab-nova-partida" onclick="setTab('add')" title="Registrar nova partida">
+    <span class="fab-icon">＋</span>
+    <span class="fab-text">Nova Partida</span>
+  </button>
+
   <div id="main-area">
-    <div id="sidebar">
-      <button id="fab-nova-partida" onclick="setTab('add')" title="Registrar nova partida">
-        <span class="fab-icon">＋</span> Nova Partida
-      </button>
-    </div>
     <div id="content">
 
     <div id="pane-dashboard" class="pane active">
