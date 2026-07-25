@@ -594,10 +594,12 @@ hr.divider{border:none;border-top:1px solid var(--border);margin:16px 0;}
       <div class="app-title">Aim<em>Data</em></div>
     </div>
     <div style="display:flex;gap:8px;flex-shrink:0;align-items:center;margin-left:auto;">
+      <select id="profileSelect" onchange="switchProfile(this.value)"></select>
+      <button class="hbtn brand" onclick="openProfilesManager()">⚙ Perfis</button>
       <button id="authBtn" class="hbtn brand" onclick="handleAuthClick()">🎮 Entrar com Discord</button>
       <button id="syncBtn" class="hbtn brand" onclick="handleManualSync()" style="display:none">☁ Sync</button>
       <div class="settings-wrapper">
-        <button class="hbtn brand" onclick="toggleSettingsDropdown(event)" id="settingsBtn">⚙</button>
+        <button class="hbtn brand" onclick="toggleSettingsDropdown(event)" id="settingsBtn">⋮</button>
         <div class="settings-dropdown" id="settingsDropdown">
           <button class="settings-dropdown-item" onclick="exportData();closeSettingsDropdown()">↓ Export</button>
           <label class="settings-dropdown-item action">
@@ -613,8 +615,6 @@ hr.divider{border:none;border-top:1px solid var(--border);margin:16px 0;}
     <div style="display:flex;gap:4px;align-items:center;">
       <button class="tab-btn active" onclick="setTab('dashboard')">📊 Dashboard</button>
       <button class="tab-btn" onclick="setTab('log')">📋 Histórico</button>
-      <button class="tab-btn" onclick="setTab('profiles')">⚙ Perfis</button>
-      <select id="profileSelect" onchange="switchProfile(this.value)"></select>
     </div>
   </div>
 
@@ -659,13 +659,6 @@ hr.divider{border:none;border-top:1px solid var(--border);margin:16px 0;}
   </div>
 </div>
 
-    <div id="pane-profiles" class="pane">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-        <div style="font-family:'Rajdhani',sans-serif;font-size:13px;letter-spacing:1px;text-transform:uppercase;color:var(--sub);">Seus Perfis</div>
-        <button class="hbtn brand" onclick="openModal('new')">＋ Novo Perfil</button>
-      </div>
-      <div id="profileList"></div>
-    </div>
 
   </div>
   </div>
@@ -1327,20 +1320,19 @@ function setTab(name) {
   document.querySelectorAll(".pane").forEach(p => p.classList.remove("active"));
   document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
   document.getElementById("pane-" + name).classList.add("active");
-  const navTabs = ["dashboard","log","profiles"];
+  const navTabs = ["dashboard","log"];
   const idx = navTabs.indexOf(name);
   if (idx >= 0) {
     document.querySelectorAll(".tab-btn")[idx].classList.add("active");
   }
   if (name === "dashboard") renderDashboard();
   if (name === "log")       renderLog();
-  if (name === "profiles")  renderProfilesPane();
 }
 
 function refreshAll() {
   renderProfileSelector();
   const active = document.querySelector(".tab-btn.active");
-  const navTabs = ["dashboard","log","profiles"];
+  const navTabs = ["dashboard","log"];
   const idx = [...document.querySelectorAll(".tab-btn")].indexOf(active);
   if (idx >= 0) setTab(navTabs[idx]); else setTab("dashboard");
 }
@@ -2119,10 +2111,23 @@ async function addMatch() {
    Monta a lista de perfis e o modal de criar/editar perfil,
    incluindo seleção de métricas e gerenciamento de mapas.
    ============================================================ */
-function renderProfilesPane() {
-  const list = document.getElementById("profileList");
-  if (!state.profiles.length) { list.innerHTML=`<div class="empty-state"><div class="e-icon">🎮</div><div class="e-title">Nenhum perfil criado</div><div class="e-sub">Clique em "+ Novo Perfil" para começar</div></div>`; return; }
-  list.innerHTML = state.profiles.map(p => `<div class="profile-item${p.id===activeProfileId?" active-profile":""}"><div style="flex:1;min-width:0;"><div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;"><span class="profile-name">${profileLabel(p)}</span>${p.id===activeProfileId?'<span class="profile-badge">Ativo</span>':""}</div><div class="profile-sub">${p.matches.length} partidas · ${p.metrics.length} métricas · ${p.maps.length} mapas</div></div><div class="profile-actions">${p.id!==activeProfileId?`<button class="hbtn brand" onclick="switchProfile('${p.id}')">Ativar</button>`:""}<button class="hbtn action" onclick="openModal('edit','${p.id}')">✎ Editar</button></div></div>`).join("");
+function openProfilesManager() {
+  document.getElementById("modal-title").textContent = "Gerenciar Perfis";
+  
+  let bodyHtml = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+    <div style="font-family:'Rajdhani',sans-serif;font-size:13px;letter-spacing:1px;text-transform:uppercase;color:var(--sub);">Seus Perfis</div>
+    <button class="hbtn brand" onclick="openModal('new')">＋ Novo Perfil</button>
+  </div>`;
+  
+  if (!state.profiles.length) {
+    bodyHtml += `<div class="empty-state"><div class="e-icon">🎮</div><div class="e-title">Nenhum perfil criado</div><div class="e-sub">Clique em "+ Novo Perfil" para começar</div></div>`;
+  } else {
+    bodyHtml += state.profiles.map(p => `<div class="profile-item${p.id===activeProfileId?" active-profile":""}"><div style="flex:1;min-width:0;"><div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;"><span class="profile-name">${profileLabel(p)}</span>${p.id===activeProfileId?'<span class="profile-badge">Ativo</span>':""}</div><div class="profile-sub">${p.matches.length} partidas · ${p.metrics.length} métricas · ${p.maps.length} mapas</div></div><div class="profile-actions">${p.id!==activeProfileId?`<button class="hbtn brand" onclick="switchProfile('${p.id}');closeModal();">Ativar</button>`:""}<button class="hbtn action" onclick="openModal('edit','${p.id}')">✎ Editar</button></div></div>`).join("");
+  }
+  
+  document.getElementById("modal-body").innerHTML = bodyHtml;
+  document.getElementById("modal-actions").innerHTML = `<button class="modal-cancel" onclick="closeModal()">Fechar</button>`;
+  document.getElementById("modal-overlay").classList.add("open");
 }
 
 let modalMode="new", modalProfileId=null, modalMaps=[];
