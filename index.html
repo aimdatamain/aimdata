@@ -610,11 +610,9 @@ hr.divider{border:none;border-top:1px solid var(--border);margin:16px 0;}
   </div>
 
   <div id="tabs">
-    <div style="display:flex;gap:4px;">
+    <div style="display:flex;gap:4px;align-items:center;">
       <button class="tab-btn active" onclick="setTab('dashboard')">📊 Dashboard</button>
       <button class="tab-btn" onclick="setTab('log')">📋 Histórico</button>
-    </div>
-    <div style="display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0;">
       <button class="tab-btn" onclick="setTab('profiles')">⚙ Perfis</button>
       <select id="profileSelect" onchange="switchProfile(this.value)"></select>
     </div>
