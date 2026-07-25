@@ -11,6 +11,7 @@
   /* === IDENTIDADE: cor da marca, exclusiva do app === */
   --brand:#00e5ff;
 
+  
   /* === FEEDBACK DE UI: estados de ação e resposta do sistema === */
   --action:#ff6b35;   /* editar, modificar, ações ssecundárias */
   --confirm:#39ff14;  /* OK, salvo, ativo, estados positivos */
@@ -71,13 +72,13 @@ button:hover{filter:brightness(1.2);}
 .hbtn-label{border:1px solid var(--action);color:var(--action);padding:7px 13px;font-size:11px;
   font-family:'Rajdhani',sans-serif;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;
   cursor:pointer;display:inline-block;flex-shrink:0;}
-#tabs{background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;display:flex;overflow-x:auto;}
+#tabs{background:var(--surface);border-bottom:1px solid var(--border);padding:0 45px;display:flex;overflow-x:auto;}
 .tab-btn{padding:11px 16px;font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:600;
   letter-spacing:1.5px;text-transform:uppercase;color:var(--sub);background:none;border:none;
   border-bottom:2px solid transparent;cursor:pointer;transition:all .15s;white-space:nowrap;}
 .tab-btn.active{color:var(--brand);border-bottom:2px solid var(--brand);}
 .tab-btn:hover:not(.active){color:var(--text);}
-#content{padding:45px;flex:1;}
+#content{padding:var(--pad-top,45px) var(--pad-right,45px) var(--pad-bottom,45px) var(--pad-left,45px);flex:1;}
 .pane{display:none;}
 .pane.active{display:block;}
 .card{background:var(--surface);border:1px solid var(--border);padding:18px 20px;margin-bottom:16px;}
@@ -598,9 +599,23 @@ hr.divider{border:none;border-top:1px solid var(--border);margin:16px 0;}
       <button class="hbtn brand" onclick="openProfilesManager()">⚙ Perfis</button>
     </div>
     <div style="display:flex;gap:8px;flex-shrink:0;align-items:center;margin-left:auto;">
-      <button id="authBtn" class="hbtn brand" onclick="handleAuthClick()">🎮 Entrar com Discord</button>
-      <button id="syncBtn" class="hbtn brand" onclick="handleManualSync()" style="display:none">☁ Sync</button>
-      <div class="settings-wrapper">
+      <!-- Conta: deslogado = Entrar direto | logado = Nome ▼ com dropdown -->
+      <div class="settings-wrapper" id="accountWrapper">
+        <button id="authBtn" class="hbtn brand" onclick="handleAuthClick()">🎮 Entrar com Discord</button>
+        <div class="settings-dropdown" id="accountDropdown">
+          <button class="settings-dropdown-item" onclick="handleManualSync();closeAccountDropdown()">☁ Sync</button>
+          <button class="settings-dropdown-item" onclick="exportData();closeAccountDropdown()">↓ Export</button>
+          <label class="settings-dropdown-item action">
+            ↑ Import
+            <input type="file" accept=".json" style="display:none" onchange="importData(event);closeAccountDropdown()">
+          </label>
+          <div style="border-top:1px solid var(--border);margin:4px 0;"></div>
+          <button class="settings-dropdown-item action" onclick="handleLogout();closeAccountDropdown()">⏏ Sair</button>
+        </div>
+      </div>
+      
+      <!-- ⋮ visível apenas quando deslogado -->
+      <div class="settings-wrapper" id="settingsWrapper">
         <button class="hbtn brand" onclick="toggleSettingsDropdown(event)" id="settingsBtn">⋮</button>
         <div class="settings-dropdown" id="settingsDropdown">
           <button class="settings-dropdown-item" onclick="exportData();closeSettingsDropdown()">↓ Export</button>
@@ -2654,6 +2669,17 @@ function toggleSettingsDropdown(e) {
   dropdown.classList.toggle("open");
 }
 
+function toggleAccountDropdown(e) {
+  if (e) e.stopPropagation();
+  const dropdown = document.getElementById("accountDropdown");
+  if (dropdown) dropdown.classList.toggle("open");
+}
+
+function closeAccountDropdown() {
+  const dropdown = document.getElementById("accountDropdown");
+  if (dropdown) dropdown.classList.remove("open");
+}
+
 function closeSettingsDropdown() {
   const dropdown = document.getElementById("settingsDropdown");
   if (dropdown) dropdown.classList.remove("open");
@@ -3729,26 +3755,21 @@ async function checkAuth() {
 
 function updateAuthButton() {
   const btn = document.getElementById("authBtn");
+  const accountWrapper = document.getElementById("accountWrapper");
+  const settingsWrapper = document.getElementById("settingsWrapper");
   if (!btn) return;
   if (currentUser) {
-    const syncBtn = document.getElementById("syncBtn");
-    if (syncBtn) {
-      syncBtn.style.display = "";
-      // Restaura visual de pendente se o usuário havia recusado o sync
-      if (localStorage.getItem("sync_pending") === "true") {
-        syncBtn.classList.add("sync-pending");
-      } else {
-        syncBtn.classList.remove("sync-pending");
-      }
-    }
     const name = currentUser.user_metadata?.full_name || currentUser.user_metadata?.name || "Usuário";
-    btn.textContent = "⏏ " + name;
-    btn.onclick = handleLogout;
+    btn.textContent = name + " ▼";
+    btn.onclick = toggleAccountDropdown;
+    if (settingsWrapper) settingsWrapper.style.display = "none";
+    if (accountWrapper) accountWrapper.style.display = "";
   } else {
-    const syncBtn = document.getElementById("syncBtn");
-    if (syncBtn) syncBtn.style.display = "none";
-    btn.textContent = "Entrar";
+    btn.textContent = "🎮 Entrar com Discord";
     btn.onclick = handleAuthClick;
+    if (settingsWrapper) settingsWrapper.style.display = "";
+    if (accountWrapper) accountWrapper.style.display = "";
+    closeAccountDropdown();
   }
 }
 
@@ -3796,9 +3817,13 @@ async function handleLogout() {
    ============================================================ */
 
 document.addEventListener("click", function(e) {
-  const wrapper = document.getElementById("settingsBtn")?.closest(".settings-wrapper");
-  if (wrapper && !wrapper.contains(e.target)) {
+  const settingsWrapper = document.getElementById("settingsBtn")?.closest(".settings-wrapper");
+  if (settingsWrapper && !settingsWrapper.contains(e.target)) {
     closeSettingsDropdown();
+  }
+  const accountWrapper = document.getElementById("authBtn")?.closest(".settings-wrapper");
+  if (accountWrapper && !accountWrapper.contains(e.target)) {
+    closeAccountDropdown();
   }
 });
 
