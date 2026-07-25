@@ -50,22 +50,20 @@ button:hover{filter:brightness(1.2);}
 ::-webkit-scrollbar-thumb{background:var(--border);}
 #app{display:flex;flex-direction:column;min-height:100vh;}
 #header{background:var(--surface);border-bottom:1px solid var(--border);
-  padding:10px 20px;display:flex;align-items:center;gap:14px;flex-wrap:nowrap;}
+  padding:12px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
 .logo{display:flex;align-items:center;gap:10px;flex-shrink:0;}
 .hex{width:32px;height:32px;background:var(--brand);
   clip-path:polygon(50% 0%,100% 38%,82% 100%,18% 100%,0% 38%);
   display:flex;align-items:center;justify-content:center;}
 .hex span{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;color:#000;}
-.header-tabs{display:flex;gap:4px;flex:1;justify-content:center;align-items:center;}
-.header-right{display:flex;align-items:center;gap:10px;flex-shrink:0;}
-.header-actions{display:flex;gap:6px;flex-shrink:0;align-items:center;}
-#profileBar{display:flex;align-items:center;gap:8px;}
+.app-title{font-family:'Rajdhani',sans-serif;font-size:20px;font-weight:700;letter-spacing:2px;
+  text-transform:uppercase;white-space:nowrap;}
+.app-title em{color:var(--brand);font-style:normal;}
 #profileBar{display:flex;align-items:center;gap:8px;flex:1;min-width:0;}
 #profileSelect{flex:1;min-width:0;max-width:300px;font-family:'Rajdhani',sans-serif;
   font-size:13px;font-weight:600;letter-spacing:1px;}
 .hbtn{background:transparent;padding:7px 13px;font-size:11px;font-family:'Rajdhani',sans-serif;
   font-weight:700;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;flex-shrink:0;}
-.hbtn.icon-only{padding:6px 10px;font-size:14px;letter-spacing:0;}
 .hbtn.brand{border:1px solid var(--brand);color:var(--brand);}
 .hbtn.action{border:1px solid var(--action);color:var(--action);}
 .hbtn.danger{border:1px solid var(--danger);color:var(--danger);}
@@ -582,41 +580,35 @@ hr.divider{border:none;border-top:1px solid var(--border);margin:16px 0;}
 <div id="app">
 
   <div id="header">
-    <!-- Esquerda: Logo -->
     <div class="logo">
       <div class="hex"><span>AD</span></div>
-      <div class="app-title">AIMDATA</div>
+      <div class="app-title">Aim<em>Data</em></div>
     </div>
-
-    <!-- Centro: Abas principais -->
-    <nav class="header-tabs">
-      <button class="tab-btn active" onclick="setTab('dashboard')">DASHBOARD</button>
-      <button class="tab-btn" onclick="setTab('log')">HISTÓRICO</button>
-    </nav>
-
-    <!-- Direita: Perfis, Seletor e Ações secundárias -->
-    <div class="header-right">
-      <button class="tab-btn" onclick="setTab('profiles')">⚙ PERFIS</button>
-      <div id="profileBar">
-        <select id="profileSelect" onchange="switchProfile(this.value)"></select>
-      </div>
-      <div class="header-actions">
-        <button class="hbtn brand" onclick="openModal('new')" title="Novo Perfil">＋</button>
-        <button class="hbtn action" onclick="openModal('edit')" title="Editar Perfil">✎</button>
-        <button id="authBtn" class="hbtn brand" onclick="handleAuthClick()" title="Entrar">🎮</button>
-        <button id="syncBtn" class="hbtn brand" onclick="handleManualSync()" style="display:none" title="Sync">☁</button>
-        <div class="settings-wrapper">
-          <button class="hbtn brand" onclick="toggleSettingsDropdown(event)" id="settingsBtn" title="Configurações">⚙</button>
-          <div class="settings-dropdown" id="settingsDropdown">
-            <button class="settings-dropdown-item" onclick="exportData();closeSettingsDropdown()">↓ Export</button>
-            <label class="settings-dropdown-item action">
-              ↑ Import
-              <input type="file" accept=".json" style="display:none" onchange="importData(event);closeSettingsDropdown()">
-            </label>
-          </div>
+    <div id="profileBar">
+      <select id="profileSelect" onchange="switchProfile(this.value)"></select>
+      <button class="hbtn brand" onclick="openModal('new')">＋ Perfil</button>
+      <button class="hbtn action" onclick="openModal('edit')">✎</button>
+    </div>
+    <div style="display:flex;gap:8px;flex-shrink:0;align-items:center;">
+      <button id="authBtn" class="hbtn brand" onclick="handleAuthClick()">🎮 Entrar com Discord</button>
+      <button id="syncBtn" class="hbtn brand" onclick="handleManualSync()" style="display:none">☁ Sync</button>
+      <div class="settings-wrapper">
+        <button class="hbtn brand" onclick="toggleSettingsDropdown(event)" id="settingsBtn">⚙</button>
+        <div class="settings-dropdown" id="settingsDropdown">
+          <button class="settings-dropdown-item" onclick="exportData();closeSettingsDropdown()">↓ Export</button>
+          <label class="settings-dropdown-item action">
+            ↑ Import
+            <input type="file" accept=".json" style="display:none" onchange="importData(event);closeSettingsDropdown()">
+          </label>
         </div>
       </div>
     </div>
+  </div>
+
+  <div id="tabs">
+    <button class="tab-btn active" onclick="setTab('dashboard')">📊 Dashboard</button>
+    <button class="tab-btn" onclick="setTab('log')">📋 Histórico</button>
+    <button class="tab-btn" onclick="setTab('profiles')">⚙ Perfis</button>
   </div>
 
   <div id="content">
