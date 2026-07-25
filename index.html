@@ -59,9 +59,8 @@ button:hover{filter:brightness(1.2);}
 .app-title{font-family:'Rajdhani',sans-serif;font-size:20px;font-weight:700;letter-spacing:2px;
   text-transform:uppercase;white-space:nowrap;}
 .app-title em{color:var(--brand);font-style:normal;}
-#profileBar{display:flex;align-items:center;gap:8px;flex:1;min-width:0;}
-#profileSelect{flex:1;min-width:0;max-width:300px;font-family:'Rajdhani',sans-serif;
-  font-size:13px;font-weight:600;letter-spacing:1px;}
+#profileSelect{font-family:'Rajdhani',sans-serif;
+  font-size:13px;font-weight:600;letter-spacing:1px;background:#0d1017;border:1px solid var(--border);color:var(--text);padding:7px 11px;width:200px;}
 .hbtn{background:transparent;padding:7px 13px;font-size:11px;font-family:'Rajdhani',sans-serif;
   font-weight:700;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;flex-shrink:0;}
 .hbtn.brand{border:1px solid var(--brand);color:var(--brand);}
@@ -584,11 +583,6 @@ hr.divider{border:none;border-top:1px solid var(--border);margin:16px 0;}
       <div class="hex"><span>AD</span></div>
       <div class="app-title">Aim<em>Data</em></div>
     </div>
-    <div id="profileBar">
-      <select id="profileSelect" onchange="switchProfile(this.value)"></select>
-      <button class="hbtn brand" onclick="openModal('new')">＋ Perfil</button>
-      <button class="hbtn action" onclick="openModal('edit')">✎</button>
-    </div>
     <div style="display:flex;gap:8px;flex-shrink:0;align-items:center;">
       <button id="authBtn" class="hbtn brand" onclick="handleAuthClick()">🎮 Entrar com Discord</button>
       <button id="syncBtn" class="hbtn brand" onclick="handleManualSync()" style="display:none">☁ Sync</button>
@@ -606,9 +600,14 @@ hr.divider{border:none;border-top:1px solid var(--border);margin:16px 0;}
   </div>
 
   <div id="tabs">
-    <button class="tab-btn active" onclick="setTab('dashboard')">📊 Dashboard</button>
-    <button class="tab-btn" onclick="setTab('log')">📋 Histórico</button>
-    <button class="tab-btn" onclick="setTab('profiles')">⚙ Perfis</button>
+    <div style="display:flex;gap:4px;">
+      <button class="tab-btn active" onclick="setTab('dashboard')">📊 Dashboard</button>
+      <button class="tab-btn" onclick="setTab('log')">📋 Histórico</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0;">
+      <button class="tab-btn" onclick="setTab('profiles')">⚙ Perfis</button>
+      <select id="profileSelect" onchange="switchProfile(this.value)"></select>
+    </div>
   </div>
 
   <div id="content">
