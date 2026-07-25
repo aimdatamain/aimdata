@@ -78,7 +78,7 @@ button:hover{filter:brightness(1.2);}
   border-bottom:2px solid transparent;cursor:pointer;transition:all .15s;white-space:nowrap;}
 .tab-btn.active{color:var(--brand);border-bottom:2px solid var(--brand);}
 .tab-btn:hover:not(.active){color:var(--text);}
-#content{padding-top:20px;padding-right:45px;padding-bottom:45px;padding-left:45px;flex:1;}
+#content{padding-top:16px;padding-right:45px;padding-bottom:45px;padding-left:45px;flex:1;}
 .pane{display:none;}
 .pane.active{display:block;}
 .card{background:var(--surface);border:1px solid var(--border);padding:18px 20px;margin-bottom:16px;}
@@ -488,7 +488,7 @@ hr.divider{border:none;border-top:1px solid var(--border);margin:16px 0;}
 #fab-nova-partida {
   position: fixed;
   left: 0;
-  top: 22%;
+  top: 21%;
   transform: translateY(-50%);
   width: 37px;
   min-height: 94px;
@@ -683,7 +683,7 @@ hr.divider{border:none;border-top:1px solid var(--border);margin:16px 0;}
 
 <div id="modal-overlay" onclick="closeModalOutside(event)">
   <div id="modal">
-    <div class="modal-title" id="modal-title">Novo Perfil</div>
+    <div class="modal-title" id="modal-title">Criar Novo Perfil</div>
     <div id="modal-body"></div>
     <div class="modal-actions" id="modal-actions"></div>
   </div>
@@ -1958,7 +1958,7 @@ function renderAddMatchForm() {
   const profile = getActiveProfile();
   const body = document.getElementById("match-modal-body");
   if (!profile) {
-    body.innerHTML = `<div class="empty-state" style="padding:32px 20px;"><div class="e-icon">🎮</div><div class="e-title">Nenhum perfil ativo</div><div class="e-sub">Crie um perfil na aba "Perfis" antes de adicionar partidas</div></div>`;
+    body.innerHTML = `<div class="empty-state" style="padding:32px 20px;"><div class="e-icon">🎮</div><div class="e-title">Nenhum perfil ativo</div><div class="e-sub">Crie um perfil antes de adicionar partidas</div></div>`;
     return;
   }
 
@@ -2133,13 +2133,13 @@ function openProfilesManager() {
   
   let bodyHtml = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
     <div style="font-family:'Rajdhani',sans-serif;font-size:13px;letter-spacing:1px;text-transform:uppercase;color:var(--sub);">Seus Perfis</div>
-    <button class="hbtn brand" onclick="openModal('new')">＋ Novo Perfil</button>
+    <button class="hbtn confirm" onclick="openModal('new')">＋ Criar</button>
   </div>`;
   
   if (!state.profiles.length) {
-    bodyHtml += `<div class="empty-state"><div class="e-icon">🎮</div><div class="e-title">Nenhum perfil criado</div><div class="e-sub">Clique em "+ Novo Perfil" para começar</div></div>`;
+    bodyHtml += `<div class="empty-state"><div class="e-icon">🎮</div><div class="e-title">Nenhum perfil criado</div><div class="e-sub">Crie um perfil para visualizar a lista de perfis.</div></div>`;
   } else {
-    bodyHtml += state.profiles.map(p => `<div class="profile-item${p.id===activeProfileId?" active-profile":""}"><div style="flex:1;min-width:0;"><div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;"><span class="profile-name">${profileLabel(p)}</span>${p.id===activeProfileId?'<span class="profile-badge">Ativo</span>':""}</div><div class="profile-sub">${p.matches.length} partidas · ${p.metrics.length} métricas · ${p.maps.length} mapas</div></div><div class="profile-actions">${p.id!==activeProfileId?`<button class="hbtn brand" onclick="switchProfile('${p.id}');closeModal();">Ativar</button>`:""}<button class="hbtn action" onclick="openModal('edit','${p.id}')">✎ Editar</button></div></div>`).join("");
+    bodyHtml += state.profiles.map(p => `<div class="profile-item${p.id===activeProfileId?" active-profile":""}" style="cursor:pointer;flex-wrap:nowrap;" onclick="switchProfile('${p.id}');openProfilesManager();"><div style="flex:1;min-width:0;pointer-events:none;text-align:left;"><div style="margin-bottom:4px;"><span class="profile-name" style="flex:0 auto;">${profileLabel(p)}</span></div><div class="profile-sub">${p.matches.length} partidas · ${p.metrics.length} métricas · ${p.maps.length} mapas</div></div><div class="profile-actions" style="pointer-events:auto;flex-shrink:0;"><button class="hbtn action" style="font-size:9px;padding:5px 10px;letter-spacing:1px;" onclick="event.stopPropagation();openModal('edit','${p.id}')" title="Editar perfil">✎ Editar</button>${state.profiles.length>1?`<button class="hbtn danger" style="font-size:9px;padding:5px 10px;letter-spacing:1px;" onclick="event.stopPropagation();deleteProfile('${p.id}')" title="Excluir perfil">🗑 Excluir</button>`:""}</div></div>`).join("");
   }
   
   document.getElementById("modal-body").innerHTML = bodyHtml;
@@ -2151,12 +2151,12 @@ let modalMode="new", modalProfileId=null, modalMaps=[];
 function openModal(mode, profileId) {
   modalMode=mode; modalProfileId=profileId||activeProfileId;
   const isNew=mode==="new"; const p=isNew?null:getProfile(modalProfileId);
-  document.getElementById("modal-title").textContent=isNew?"Novo Perfil":"Editar Perfil";
+  document.getElementById("modal-title").textContent=isNew?"Criar Perfil":"Editar Perfil";
   modalMaps=isNew?[]:[...p.maps];
   const selectedMetrics=isNew?["kills","deaths","time","kd","kpm","kpd"]:p.metrics;
-  document.getElementById("modal-body").innerHTML=`<div class="field"><label>Jogo</label><input type="text" id="m-game" placeholder="ex: Delta Force" value="${p?.game||""}"></div><div class="form-row" style="margin-bottom:12px;"><div class="field" style="margin-bottom:0"><label>Modo</label><input type="text" id="m-mode" placeholder="ex: A/D" value="${p?.mode||""}"></div><div class="field" style="margin-bottom:0"><label>Servidor (opcional)</label><input type="text" id="m-server" placeholder="ex: BR" value="${p?.server||""}"></div></div><hr class="divider"><span class="section-label">Métricas</span><div class="metric-grid" id="metricGrid">${ALL_METRICS.map(m=>`<label class="metric-item"><input type="checkbox" value="${m.id}" ${selectedMetrics.includes(m.id)?"checked":""}><div><span>${m.label}</span>${m.type==="calc"?`<br><small>requer: ${m.needs.join(", ")}</small>`:""}</div></label>`).join("")}</div><hr class="divider"><span class="section-label">Mapas</span><div class="tag-list" id="modalTagList"></div><div class="add-tag-row"><input type="text" id="m-map-input" placeholder="Nome do mapa" onkeydown="if(event.key==='Enter')addModalMap()"><button class="add-tag-btn" onclick="addModalMap()">＋ Adicionar</button></div>`;
+  document.getElementById("modal-body").innerHTML=`<div class="field"><label>Jogo</label><input type="text" id="m-game" placeholder="ex: Delta Force" value="${p?.game||""}"></div><div class="form-row" style="margin-bottom:12px;"><div class="field" style="margin-bottom:0"><label>Modo</label><input type="text" id="m-mode" placeholder="ex: A/D" value="${p?.mode||""}"></div><div class="field" style="margin-bottom:0"><label>Servidor (opcional)</label><input type="text" id="m-server" placeholder="ex: BR" value="${p?.server||""}"></div></div><hr class="divider"><span class="section-label">Métricas</span><div class="metric-grid" id="metricGrid">${ALL_METRICS.map(m=>`<label class="metric-item"><input type="checkbox" value="${m.id}" ${selectedMetrics.includes(m.id)?"checked":""}><div><span>${m.label}</span>${m.type==="calc"?`<br><small>requer: ${m.needs.join(", ")}</small>`:""}</div></label>`).join("")}</div><hr class="divider"><span class="section-label">Mapas</span><div class="tag-list" id="modalTagList"></div><div class="add-tag-row"><input type="text" id="m-map-input" placeholder="Nome do mapa" onkeydown="if(event.key==='Enter')addModalMap()"><button class="add-tag-btn" onclick="addModalMap()">＋ Criar</button></div>`;
   renderModalTags();
-  document.getElementById("modal-actions").innerHTML=`${!isNew&&state.profiles.length>1?`<button class="modal-delete" onclick="deleteProfile('${modalProfileId}').catch(()=>{})">🗑 Excluir Perfil</button>`:""}<button class="modal-cancel" onclick="closeModal()">Cancelar</button><button class="modal-save" onclick="saveModal()">Salvar</button>`;
+  document.getElementById("modal-actions").innerHTML=`<button class="modal-cancel" onclick="closeModal()">Cancelar</button><button class="modal-save" onclick="saveModal()">Salvar</button>`;
   document.getElementById("modal-overlay").classList.add("open");
 }
 function renderModalTags() { document.getElementById("modalTagList").innerHTML=modalMaps.map((m,i)=>`<div class="tag">${m}<button class="tag-remove" onclick="removeModalMap(${i})">×</button></div>`).join(""); }
