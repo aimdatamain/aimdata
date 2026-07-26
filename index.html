@@ -2616,12 +2616,10 @@ async function syncMissingProfilesToCloud() {
     
     if (!checkErr && existingDeleted) {
       if (existingDeleted.deleted) {
-        console.warn(`[SYNC] Perfil ${profile.game} foi deletado na nuvem. Removendo local.`);
-        state.profiles = state.profiles.filter(p => p.id !== profile.id);
-        if (activeProfileId === profile.id) {
-          activeProfileId = state.profiles[0]?.id || null;
-          state.activeProfileId = activeProfileId;
-        }
+        // Registro deletado na nuvem com mesmo local_id: gera novo ID local
+        // para evitar conflito e permitir que o perfil seja recriado como novo
+        console.warn(`[SYNC] Perfil ${profile.game} (local_id ${profile.id}) colide com registro deletado na nuvem. Gerando novo local_id.`);
+        profile.id = "p" + Date.now() + Math.random().toString(36).substr(2, 5);
         saveState();
         continue;
       } else {
@@ -3842,7 +3840,7 @@ function showNewOfflineProfilesModal(newProfiles, duplicates, offlineData) {
   `;
   document.getElementById("modal-actions").innerHTML = `
     <button class="modal-cancel" onclick="declineOfflineMerge()">Não, ignorar</button>
-    <button class="modal-save" onclick="proceedOfflineMerge()">Sim, incorporar à conta</button>
+    <button class="modal-save" id="btn-incorporar" onclick="this.disabled=true;this.textContent='Incorporando...';proceedOfflineMerge()">Sim, incorporar à conta</button>
   `;
   document.getElementById("modal-overlay").classList.add("open");
 
@@ -3857,6 +3855,8 @@ function showNewOfflineProfilesModal(newProfiles, duplicates, offlineData) {
 function proceedOfflineMerge() {
   const pending = window._pendingOfflineMerge;
   if (!pending) return;
+  if (pending._executing) return;
+  pending._executing = true;
 
   if (pending.duplicates.length > 0) {
     pending.stage = 'conflicts';
@@ -3937,16 +3937,7 @@ function applyOfflineMerge(newProfiles, duplicateChoices) {
   refreshAll();
   showToast("✓ Dados offline incorporados à conta");
 
-  // 6. Sincroniza com a nuvem em background
-  if (currentUser && supabaseClient) {
-    syncMissingProfilesToCloud().then(() => {
-      uploadLocalOrphans().then(() => {
-        refreshAll();
-      });
-    });
-  }
-
-  // 7. Continua para o fluxo de sync normal
+  // 6. Continua para o fluxo de sync normal (mergeCloudData cuidará do sync completo)
   setTimeout(() => promptFirstSync(), 500);
 }
 
@@ -3987,7 +3978,7 @@ function showDuplicateProfilesModal(duplicates) {
   document.getElementById("modal-body").innerHTML = body;
   document.getElementById("modal-actions").innerHTML = `
     <button class="modal-cancel" onclick="closeModal(); finishOfflineResolution();">Cancelar</button>
-    <button class="modal-save" onclick="resolveDuplicateProfiles()">Confirmar</button>
+    <button class="modal-save" id="btn-resolve-dup" onclick="this.disabled=true;this.textContent='Processando...';resolveDuplicateProfiles()">Confirmar</button>
   `;
   document.getElementById("modal-overlay").classList.add("open");
 
