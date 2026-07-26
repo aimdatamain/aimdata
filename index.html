@@ -3866,6 +3866,8 @@ function proceedOfflineMerge() {
 }
 
 function applyOfflineMerge(newProfiles, duplicateChoices) {
+  closeModal(); // fecha o modal imediatamente para feedback visual
+  
   // 1. Adiciona perfis novos (sem conflito)
   for (const p of newProfiles) {
     if (!state.profiles.find(ep => ep.id === p.id)) {
