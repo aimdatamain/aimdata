@@ -1399,9 +1399,8 @@ function buildMapPerformanceCardHtml(titleClass, canvasHeight) {
         <div class="map-help">
           <span>?</span>
           <div class="map-help-tooltip">
-            <strong>Recente</strong> mostra K/D, KPM e KPD calculados só com as 30 partidas mais recentes de cada mapa — reflete sua forma atual.<br><br>
-            <strong>Total</strong> mostra esses mesmos números calculados com o histórico completo de cada mapa — reflete sua trajetória inteira.<br><br>
-            A contagem de partidas muda junto: "Recente" trava em 30, "Total" mostra o total real. Clique no botão ao lado do título para alternar entre os dois.
+            <strong>Total/Recente</strong> — alterna entre o histórico completo e as últimas 30 partidas de cada mapa.<br><br>
+            Compare seu desempenho em cada cenário que você jogou. As barras mostram K/D, KPM ou KPD — clique nas abas abaixo do título para alternar entre as métricas. A tabela detalhada lista todos os mapas com seus valores.
           </div>
         </div>
       </div>
@@ -1517,7 +1516,7 @@ function renderDashboard() {
     }
   });
 
-  html += `<div class="card"><div class="map-card-title"><div class="map-card-title-left"><div class="card-title brand" style="margin-bottom:0;">Quadro de Desempenho</div><button class="map-view-tab-btn active" onclick="toggleKpiViewMode()">${kpiViewMode === 'total' ? 'Total' : 'Recente'}</button></div></div>`;
+  html += `<div class="card"><div class="map-card-title"><div class="map-card-title-left"><div class="card-title brand" style="margin-bottom:0;">Quadro de Desempenho</div><button class="map-view-tab-btn active" onclick="toggleKpiViewMode()">${kpiViewMode === 'total' ? 'Total' : 'Recente'}</button><div class="map-help"><span>?</span><div class="map-help-tooltip"><strong>Total/Recente</strong> — alterna entre o histórico completo e as últimas 30 partidas.<br><br>Este quadro mostra suas médias de desempenho com base nas partidas registradas. Cada cartão exibe a média de uma métrica, além do menor e maior valor alcançado no período selecionado. Clique no campo tracejado para definir metas pessoais — o progresso indica se você está acima, abaixo ou na meta.</div></div></div></div>`;
   html += `<div class="kpi-grid">${kpiData.map(k => {
     const hasRange = k.min !== undefined && k.max !== undefined;
     const rangeHtml = hasRange ? `<div class="kpi-range"><span class="kpi-min">${k.min}</span><span class="kpi-max">${k.max}</span></div>` : '';
@@ -1563,12 +1562,17 @@ function renderDashboard() {
         <div class="map-card-title-left">
           <div class="card-title brand" style="margin-bottom:0;">${evolutionViewMode === 'total' ? 'Gráfico de Evolução' : 'Gráfico de Evolução'}</div>
           <button class="map-view-tab-btn active" onclick="toggleEvolutionViewMode()">${evolutionViewMode === 'total' ? 'Total' : 'Recente'}</button>
-          <div class="map-help">
+            <div class="map-help">
             <span>?</span>
             <div class="map-help-tooltip">
-              <strong>Total</strong> mostra o gráfico com o histórico completo de partidas.<br><br>
-              <strong>Recente</strong> mostra o gráfico apenas com as últimas 30 partidas.<br><br>
-              Clique no botão ao lado do título para alternar entre os dois.
+              <strong>Linha fina:</strong> valor bruto de cada partida (K/D, KPM, KPD ou Kills).<br><br>
+              <strong>Linha tracejada:</strong> média móvel de 10 partidas — suaviza picos e mostra a tendência real.<br><br>
+              <strong>🥇🥈🥉 Bolinhas:</strong> recordes pessoal nas partidas exibidas. Ouro = melhor, Prata = 2º, Bronze = 3º. Para KPD, menor valor vence.<br><br>
+              <strong>Indicador %:</strong> no canto superior direito. Compara a primeira metade das partidas com a segunda metade. Verde = evolução, vermelho = regressão, ciano = estável.<br><br>
+              <strong>Abas K/D · KPM · KPD · Kills:</strong> clique para trocar a métrica do gráfico.<br><br>
+              <strong>Total:</strong> histórico completo (compara 30 primeiras vs 30 últimas quando há 60+ partidas).<br>
+              <strong>Recente:</strong> só as últimas 30 partidas (compara 15 primeiras vs 15 últimas desse bloco).<br><br>
+              <em>Quanto mais partidas registradas, mais confiável a tendência.</em>
             </div>
           </div>
         </div>
@@ -2294,6 +2298,8 @@ function closeAddMatchModalOutside(e) {
   if (e.target === document.getElementById("match-modal-overlay")) closeAddMatchModal();
 }
 
+
+
 function calcAdaptiveEvolution(values, isInverted) {
   // values: array de números (ex: todos os K/D da vida do jogador)
   // isInverted: true para KPD (menor = melhor)
@@ -2349,10 +2355,14 @@ function formatEvolution(ev, variant) {
   const arrow = ev.improved ? '▲' : (ev.stable ? '●' : '▼');
   const label = ev.stable ? stableLabel : (ev.improved ? growthLabel : dropLabel);
   
+  const sampleLabel = isRecente
+    ? `30 últimas`
+    : `${ev.sampleSize} primeiras vs ${ev.sampleSize} últimas`;
+
   return `<span style="color:${color};font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:600;letter-spacing:0.5px;">
     ${arrow} ${sign}${ev.pct}% ${label}
   </span><br><span style="color:var(--muted);font-size:10px;font-family:'Rajdhani',sans-serif;">
-    (${ev.sampleSize} primeiras vs ${ev.sampleSize} últimas)
+    (${sampleLabel})
   </span>`;
 }
 
@@ -2461,7 +2471,7 @@ function refreshEvolutionIndicator() {
   const allValues = profile.matches.map(r => r[mid]).filter(v => v !== undefined && v !== null && v > 0);
   const evData = evolutionViewMode === 'total'
     ? calcAdaptiveEvolution(allValues, isInvertedMap[mid])
-    : calcAdaptiveEvolution(allValues.slice(-60), isInvertedMap[mid]);
+    : calcAdaptiveEvolution(allValues.slice(-30), isInvertedMap[mid]);
   const variant = evolutionViewMode === 'total' ? 'geral' : 'recente';
   evContainer.innerHTML = `<div>${formatEvolution(evData, variant)}</div>`;
 }
