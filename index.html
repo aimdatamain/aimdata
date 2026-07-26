@@ -741,16 +741,7 @@ function getOfflineProfileDiffs(offlineState, accountState) {
   for (const op of offlineState.profiles) {
     const sig = `${op.game}|${op.mode || ''}|${op.server || ''}`;
     if (accountIds.has(op.id)) {
-      // Mesmo ID já existe na conta, mas pode ter partidas novas adicionadas offline
-      // Trata como duplicado para o usuário decidir se quer mesclar
-      const accountProfile = accountState.profiles.find(p => p.id === op.id);
-      if (accountProfile) {
-        // Verifica se há partidas no offline que não existem na conta
-        const offlineOnly = deduplicateMatches(accountProfile.matches, op.matches || []);
-        if (offlineOnly.length > 0) {
-          duplicates.push(op);
-        }
-      }
+      // Mesmo ID já sincronizado anteriormente — não é conflito
       continue;
     } else if (accountSigs.has(sig)) {
       duplicates.push(op);
@@ -1164,23 +1155,6 @@ function normalizeProfileMatches(profile) {
   // Reatribui match_number sequencial baseado na ordem cronológica
   profile.matches.forEach((m, idx) => {
     m.match_number = idx + 1;
-  });
-}
-
-function isSameMatch(a, b) {
-  // Compara partidas por conteúdo, não por ID
-  const sameMap = (a.map || "") === (b.map || "");
-  const sameKills = (a.kills ?? 0) === (b.kills ?? 0);
-  const sameDeaths = (a.deaths ?? 0) === (b.deaths ?? 0);
-  const sameTime = (a.time ?? 0) === (b.time ?? 0);
-  const sameDate = (a.match_date || "") === (b.match_date || "");
-  return sameMap && sameKills && sameDeaths && sameTime && sameDate;
-}
-
-function deduplicateMatches(existingMatches, incomingMatches) {
-  // Retorna apenas as incoming que NÃO existem no existing
-  return incomingMatches.filter(inc => {
-    return !existingMatches.some(ex => isSameMatch(ex, inc));
   });
 }
 
@@ -2852,21 +2826,23 @@ function resolveImportConflicts(conflictCount, newCount) {
     }
 
     if (choice === 'merge') {
+      // Mescla partidas: adiciona todas do importado ao existente
+      // Evita duplicatas por match_number (se houver colisão, renumera)
       const existing = c.existing;
-      const incoming = (c.imported.matches || []).map(m => ({
-        ...m,
-        id: "m" + Date.now() + Math.random().toString(36).substr(2, 5)
-      }));
+      const incoming = c.imported.matches || [];
 
-      // DEDUPLICAÇÃO: só adiciona partidas que não existem no perfil atual
-      const uniqueIncoming = deduplicateMatches(existing.matches, incoming);
-      existing.matches = existing.matches.concat(uniqueIncoming);
+      incoming.forEach(m => {
+        // Gera ID novo para evitar colisão de ID
+        const newMatch = { ...m, id: "m" + Date.now() + Math.random().toString(36).substr(2, 5) };
+        existing.matches.push(newMatch);
+      });
 
       // Mescla mapas (union)
       (c.imported.maps || []).forEach(map => {
         if (!existing.maps.includes(map)) existing.maps.push(map);
       });
 
+      // Reordena e renumera
       normalizeProfileMatches(existing);
       return;
     }
@@ -2982,7 +2958,8 @@ function showOfflineMergeModal(offlineData) {
 
 function declineOfflineMerge() {
   closeModal();
-  showToast("✓ Dados offline mantidos separados. Use ↓ Export para salvá-los manualmente.");
+  delete window._pendingOfflineMerge;
+  showToast("✓ Dados locais preservados. Eles reaparecerão quando você deslogar.");
 }
 
 async function confirmOfflineMerge() {
@@ -3845,83 +3822,129 @@ function showSyncConsentModal(hasCloud) {
   document.getElementById("modal-overlay").classList.add("open");
 }
 
-function showNewOfflineProfilesModal(newProfiles, duplicates) {
+function showNewOfflineProfilesModal(newProfiles, duplicates, offlineData) {
   closeModal();
+  offlineMergeChecked = true; // evita que qualquer timer antigo interfira
 
-  const names = newProfiles.map(p => profileLabel(p)).join(", ");
-  let body = `
+  const allProfiles = [...newProfiles, ...duplicates];
+  const totalMatches = allProfiles.reduce((sum, p) => sum + (p.matches?.length || 0), 0);
+  const profileNames = allProfiles.map(p => profileLabel(p)).join(", ");
+
+  document.getElementById("modal-title").textContent = "Dados salvos sem login encontrados";
+  document.getElementById("modal-body").innerHTML = `
     <p style="font-size:13px;color:var(--sub);line-height:1.7;margin-bottom:16px;">
-      Encontramos ${newProfiles.length} perfil(s) salvo(s) neste navegador que ainda nao foram incorporados a esta conta:
-      <strong style="color:var(--text);">${names}</strong>
+      Encontramos ${totalMatches} partida(s) salva(s) neste navegador sem estar logado, no(s) perfil(is): <strong style="color:var(--text);">${profileNames}</strong>.
     </p>
     <p style="font-size:13px;color:var(--sub);line-height:1.7;margin-bottom:16px;">
-      O que deseja fazer?
+      Deseja incorporar esses dados à sua conta atual? Se já existir um perfil igual (mesmo jogo/modo/servidor), as partidas serão adicionadas a ele. Nenhuma partida existente na conta será apagada ou sobrescrita.
     </p>
-    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;">
-      <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;font-size:13px;color:var(--text);">
-        <input type="radio" name="offline-choice" value="incorporate" checked>
-        <span><strong style="color:var(--confirm);">Incorporar</strong> — enviar para minha conta na nuvem</span>
-      </label>
-      <label style="...">
-        <input type="radio" name="offline-choice" value="ignore">
-        <span><strong style="color:var(--action);">Ignorar</strong> — manter apenas no navegador</span>
-      </label>
-    </div>
   `;
-
-  document.getElementById("modal-title").textContent = "Perfis locais encontrados";
-  document.getElementById("modal-body").innerHTML = body;
   document.getElementById("modal-actions").innerHTML = `
-    <button class="modal-cancel" onclick="closeModal(); skipOfflineResolution();">Decidir depois</button>
-    <button class="modal-save" onclick="resolveNewOfflineProfiles()">Confirmar</button>
+    <button class="modal-cancel" onclick="declineOfflineMerge()">Não, ignorar</button>
+    <button class="modal-save" onclick="proceedOfflineMerge()">Sim, incorporar à conta</button>
   `;
   document.getElementById("modal-overlay").classList.add("open");
 
-  // Guarda dados para uso no confirmar
-  window._pendingOffline = { newProfiles, duplicates };
+  window._pendingOfflineMerge = {
+    stage: 'consent',
+    newProfiles: newProfiles || [],
+    duplicates: duplicates || [],
+    offlineData: offlineData
+  };
 }
 
-function resolveNewOfflineProfiles() {
-  const choice = document.querySelector('input[name="offline-choice"]:checked')?.value || 'ignore';
-  const { newProfiles, duplicates } = window._pendingOffline || {};
-  closeModal();
+function proceedOfflineMerge() {
+  const pending = window._pendingOfflineMerge;
+  if (!pending) return;
 
-  // BACKUP DE SEGURANÇA antes de alterar dados
-  generateEmergencyBackup();
+  if (pending.duplicates.length > 0) {
+    pending.stage = 'conflicts';
+    showDuplicateProfilesModal(pending.duplicates);
+  } else {
+    applyOfflineMerge(pending.newProfiles, []);
+  }
+}
 
-  if (choice === 'incorporate' && newProfiles && newProfiles.length > 0) {
-    // Adiciona perfis novos ao state da conta
-    for (const p of newProfiles) {
-      // Garante que nao ha colisao de ID
-      if (!state.profiles.find(ep => ep.id === p.id)) {
-        state.profiles.push({ ...p, cloudId: null }); // sera criado na nuvem no proximo sync
+function applyOfflineMerge(newProfiles, duplicateChoices) {
+  // 1. Adiciona perfis novos (sem conflito)
+  for (const p of newProfiles) {
+    if (!state.profiles.find(ep => ep.id === p.id)) {
+      state.profiles.push({ ...p, cloudId: null });
+    }
+  }
+
+  // 2. Aplica resoluções de duplicados
+  const pending = window._pendingOfflineMerge;
+  if (pending && pending.duplicates.length > 0) {
+    for (let idx = 0; idx < pending.duplicates.length; idx++) {
+      const choice = duplicateChoices[idx] || 'ignore';
+      const dp = pending.duplicates[idx];
+
+      if (choice === 'merge') {
+        const accountProfile = state.profiles.find(p =>
+          p.game === dp.game && p.mode === dp.mode && p.server === dp.server
+        );
+        if (accountProfile) {
+          const incoming = (dp.matches || []).map(m => ({
+            ...m,
+            id: "m" + Date.now() + Math.random().toString(36).substr(2, 5)
+          }));
+          accountProfile.matches = accountProfile.matches.concat(incoming);
+          (dp.maps || []).forEach(map => {
+            if (!accountProfile.maps.includes(map)) accountProfile.maps.push(map);
+          });
+          normalizeProfileMatches(accountProfile);
+        }
+      } else if (choice === 'separate') {
+        const newProfile = {
+          ...dp,
+          id: "p" + Date.now() + Math.random().toString(36).substr(2, 5),
+          cloudId: null
+        };
+        state.profiles.push(newProfile);
       }
+      // choice === 'ignore': nao faz nada (gt_v1 mantem o perfil local)
     }
-    saveState();
-    showToast(`✓ ${newProfiles.length} perfil(s) incorporado(s)`);
-    // Sincroniza silenciosamente
-    if (currentUser && supabaseClient) {
-      syncMissingProfilesToCloud().then(() => {
-        uploadLocalOrphans().then(() => {
-          refreshAll();
-        });
-      });
-    } else {
-      refreshAll();
-    }
-  } else {
-    // Ignorar: nao mexe em gt_v1, nao adiciona a conta
-    showToast("✓ Perfis locais mantidos no navegador");
   }
 
-  // Se houver duplicados, mostra Modal 2 em seguida
-  if (duplicates && duplicates.length > 0) {
-    setTimeout(() => showDuplicateProfilesModal(duplicates), 300);
-  } else {
-    // Se nao ha mais nada a resolver, continua com o fluxo normal de sync
-    setTimeout(() => promptFirstSync(), 500);
-    delete window._pendingOffline;
+  // 3. Ajusta perfil ativo se necessario
+  if (!state.activeProfileId && state.profiles.length > 0) {
+    state.activeProfileId = state.profiles[0].id;
+    activeProfileId = state.activeProfileId;
   }
+  saveState();
+
+  // 4. Backup dos dados offline antes de remover (Regra 31)
+  if (pending && pending.offlineData) {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const blob = new Blob([JSON.stringify(pending.offlineData, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `aimdata-offline-backup-${timestamp}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
+  }
+
+  // 5. Remove dados offline brutos
+  localStorage.removeItem("gt_v1");
+  delete window._pendingOfflineMerge;
+
+  refreshAll();
+  showToast("✓ Dados offline incorporados à conta");
+
+  // 6. Sincroniza com a nuvem em background
+  if (currentUser && supabaseClient) {
+    syncMissingProfilesToCloud().then(() => {
+      uploadLocalOrphans().then(() => {
+        refreshAll();
+      });
+    });
+  }
+
+  // 7. Continua para o fluxo de sync normal
+  setTimeout(() => promptFirstSync(), 500);
 }
 
 function showDuplicateProfilesModal(duplicates) {
@@ -3942,20 +3965,22 @@ function showDuplicateProfilesModal(duplicates) {
         <div style="display:flex;flex-direction:column;gap:8px;">
           <label style="display:flex;align-items:flex-start;gap:6px;cursor:pointer;font-size:12px;color:var(--text);">
             <input type="radio" name="dup-${idx}" value="merge" checked>
-            <span><strong style="color:var(--confirm);">Mesclar partidas</strong> — unir no perfil existente</span>
+            <span><strong style="color:var(--confirm);">Mesclar</strong> — unir partidas no perfil da conta</span>
           </label>
-          <label ...>
-            <span><strong style="color:var(--brand);">Criar perfil separado</strong> — novo perfil na conta</span>
+          <label style="display:flex;align-items:flex-start;gap:6px;cursor:pointer;font-size:12px;color:var(--text);">
+            <input type="radio" name="dup-${idx}" value="separate">
+            <span><strong style="color:var(--brand);">Manter separado</strong> — criar perfil novo na conta</span>
           </label>
-          <label ...>
-            <span><strong style="color:var(--action);">Ignorar</strong> — manter apenas no navegador</span>
+          <label style="display:flex;align-items:flex-start;gap:6px;cursor:pointer;font-size:12px;color:var(--text);">
+            <input type="radio" name="dup-${idx}" value="ignore">
+            <span><strong style="color:var(--action);">Ignorar</strong> — manter perfil local no navegador apenas</span>
           </label>
         </div>
       </div>
     `;
   });
 
-  document.getElementById("modal-title").textContent = "Perfis duplicados encontrados";
+  document.getElementById("modal-title").textContent = "Conflito de importação";
   document.getElementById("modal-body").innerHTML = body;
   document.getElementById("modal-actions").innerHTML = `
     <button class="modal-cancel" onclick="closeModal(); finishOfflineResolution();">Cancelar</button>
@@ -3967,69 +3992,26 @@ function showDuplicateProfilesModal(duplicates) {
 }
 
 function resolveDuplicateProfiles() {
-  const duplicates = window._pendingDuplicates || [];
+  const pending = window._pendingOfflineMerge;
+  if (!pending || pending.stage !== 'conflicts') {
+    closeModal();
+    return;
+  }
+
+  const choices = [];
+  for (let idx = 0; idx < pending.duplicates.length; idx++) {
+    const choice = document.querySelector(`input[name="dup-${idx}"]:checked`)?.value || 'ignore';
+    choices.push(choice);
+  }
   closeModal();
 
-  // BACKUP DE SEGURANÇA antes de alterar dados
-  generateEmergencyBackup();
+  applyOfflineMerge(pending.newProfiles, choices);
+}
 
-  for (let idx = 0; idx < duplicates.length; idx++) {
-    const dp = duplicates[idx];
-    const choice = document.querySelector(`input[name="dup-${idx}"]:checked`)?.value || 'ignore';
-
-    if (choice === 'merge') {
-      const accountProfile = state.profiles.find(p =>
-        p.game === dp.game && p.mode === dp.mode && p.server === dp.server
-      );
-      if (accountProfile) {
-        const incoming = (dp.matches || []).map(m => ({
-          ...m,
-          id: "m" + Date.now() + Math.random().toString(36).substr(2, 5)
-        }));
-
-        // DEDUPLICAÇÃO
-        const uniqueIncoming = deduplicateMatches(accountProfile.matches, incoming);
-        accountProfile.matches = accountProfile.matches.concat(uniqueIncoming);
-
-        // Uniao de mapas
-        (dp.maps || []).forEach(map => {
-          if (!accountProfile.maps.includes(map)) accountProfile.maps.push(map);
-        });
-        normalizeProfileMatches(accountProfile);
-      }
-    } else if (choice === 'separate') {
-      // Cria novo perfil na conta com ID novo
-      const newProfile = {
-        ...dp,
-        id: "p" + Date.now() + Math.random().toString(36).substr(2, 5),
-        cloudId: null
-      };
-      state.profiles.push(newProfile);
-    }
-    // choice === 'ignore': nao faz nada (gt_v1 mantem o perfil local)
-  }
-
-  if (duplicates.some((_, i) => {
-    const c = document.querySelector(`input[name="dup-${i}"]:checked`)?.value;
-    return c === 'merge' || c === 'separate';
-  })) {
-    saveState();
-    showToast("✓ Conflitos resolvidos");
-    if (currentUser && supabaseClient) {
-      syncMissingProfilesToCloud().then(() => {
-        uploadLocalOrphans().then(() => {
-          refreshAll();
-        });
-      });
-    } else {
-      refreshAll();
-    }
-  } else {
-    showToast("✓ Perfis locais mantidos no navegador");
-  }
-
-  delete window._pendingDuplicates;
-  setTimeout(() => promptFirstSync(), 500);
+function cancelDuplicateResolution() {
+  closeModal();
+  delete window._pendingOfflineMerge;
+  showToast("⚠ Incorporação cancelada. Dados locais preservados — reaparecerão ao deslogar.");
 }
 
 function finishOfflineResolution() {
@@ -4148,7 +4130,6 @@ async function checkAuth() {
       // Fluxo normal se nao ha conflitos offline
       setTimeout(() => promptFirstSync(), 500);
 
-
     } else {
       currentUser = null;
       state = loadState();
@@ -4187,7 +4168,7 @@ async function checkAuth() {
         }
 
         setTimeout(() => promptFirstSync(), 500);
-
+        setTimeout(() => checkOfflineMerge(), 1200);
       }
     } else if (event === 'SIGNED_OUT' || (event === 'TOKEN_REFRESHED' && !session)) {
       currentUser = null;
