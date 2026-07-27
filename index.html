@@ -2684,6 +2684,13 @@ function importData(e) {
 
       // Normaliza dados importados (ordenação, match_number, limpa cloudId)
       data.profiles.forEach(profile => {
+        // Validação: descarta partidas inválidas para não corromper o estado
+        if (Array.isArray(profile.matches)) {
+          profile.matches = profile.matches.filter(m => m && typeof m.map === 'string' && m.map.trim() !== '');
+        } else {
+          profile.matches = [];
+        }
+        
         if (Array.isArray(profile.matches)) {
           profile.matches.sort((a, b) => {
             const dateA = a.match_date ? new Date(a.match_date).getTime() : 0;
@@ -2715,7 +2722,16 @@ function importData(e) {
 
       // Se não há conflitos: importa silenciosamente
       if (conflicts.length === 0) {
-        state.profiles.push(...newProfiles);
+        // Sanitiza IDs de partidas para evitar colisão com UUIDs de outra conta
+        const sanitized = newProfiles.map(p => ({
+          ...p,
+          cloudId: null,
+          matches: (p.matches || []).map(m => ({
+            ...m,
+            id: "m" + Date.now() + Math.random().toString(36).substr(2, 5)
+          }))
+        }));
+        state.profiles.push(...sanitized);
         if (!state.activeProfileId && state.profiles.length > 0) {
           state.activeProfileId = state.profiles[0].id;
           activeProfileId = state.activeProfileId;
@@ -2935,25 +2951,6 @@ async function checkOfflineMerge() {
   showOfflineMergeModal(offlineData);
 }
 
-function showOfflineMergeModal(offlineData) {
-  closeModal();
-  const totalMatches = offlineData.profiles.reduce((sum, p) => sum + (p.matches?.length || 0), 0);
-  const profileNames = offlineData.profiles.map(p => [p.game, p.mode, p.server].filter(Boolean).join(" · ")).join(", ");
-  document.getElementById("modal-title").textContent = "Dados salvos sem login encontrados";
-  document.getElementById("modal-body").innerHTML = `
-    <p style="font-size:13px;color:var(--sub);line-height:1.7;margin-bottom:16px;">
-      Encontramos ${totalMatches} partida(s) salva(s) neste navegador sem estar logado, no(s) perfil(is): <strong style="color:var(--text);">${profileNames}</strong>.
-    </p>
-    <p style="font-size:13px;color:var(--sub);line-height:1.7;margin-bottom:16px;">
-      Deseja incorporar esses dados à sua conta atual? Se já existir um perfil igual (mesmo jogo/modo/servidor), as partidas serão adicionadas a ele. Nenhuma partida existente na conta será apagada ou sobrescrita.
-    </p>
-  `;
-  document.getElementById("modal-actions").innerHTML = `
-    <button class="modal-cancel" onclick="declineOfflineMerge()">Não, ignorar</button>
-    <button class="modal-save" onclick="confirmOfflineMerge()">Sim, incorporar à conta</button>
-  `;
-  document.getElementById("modal-overlay").classList.add("open");
-}
 
 function declineOfflineMerge() {
   closeModal();
@@ -2961,57 +2958,7 @@ function declineOfflineMerge() {
   showToast("✓ Dados locais preservados. Eles reaparecerão quando você deslogar.");
 }
 
-async function confirmOfflineMerge() {
-  closeModal();
-  const offlineData = hasOfflineData();
-  if (!offlineData) return;
 
-  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-  const blob = new Blob([JSON.stringify(offlineData, null, 2)], { type: "application/json" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = `aimdata-offline-backup-${timestamp}.json`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(a.href);
-  showToast("💾 Backup dos dados offline baixado");
-
-  offlineData.profiles.forEach(offlineProfile => {
-    const match = state.profiles.find(p =>
-      p.game === offlineProfile.game && p.mode === offlineProfile.mode && p.server === offlineProfile.server
-    );
-    const incomingMatches = (offlineProfile.matches || []).map(m => ({
-      ...m,
-      id: "m" + Date.now() + Math.random().toString(36).substr(2, 5)
-    }));
-    if (match) {
-      match.matches = match.matches.concat(incomingMatches);
-      (offlineProfile.maps || []).forEach(mp => { if (!match.maps.includes(mp)) match.maps.push(mp); });
-    } else {
-      state.profiles.push({
-        id: "p" + Date.now() + Math.random().toString(36).substr(2, 5),
-        game: offlineProfile.game,
-        mode: offlineProfile.mode,
-        server: offlineProfile.server,
-        maps: offlineProfile.maps || [],
-        metrics: offlineProfile.metrics || [],
-        matches: incomingMatches
-      });
-    }
-  });
-
-  saveState();
-  state = loadState();
-
-  if (supabaseClient && currentUser) {
-    await uploadLocalOrphans();
-  }
-
-  localStorage.removeItem("gt_v1");
-  refreshAll();
-  showToast("✓ Dados offline incorporados à conta");
-}
 
 // Verifica se o usuário logado já tem dados no Supabase
 async function hasCloudData() {
@@ -3872,7 +3819,14 @@ function applyOfflineMerge(newProfiles, duplicateChoices) {
   // 1. Adiciona perfis novos (sem conflito)
   for (const p of newProfiles) {
     if (!state.profiles.find(ep => ep.id === p.id)) {
-      state.profiles.push({ ...p, cloudId: null });
+      state.profiles.push({
+        ...p,
+        cloudId: null,
+        matches: (p.matches || []).map(m => ({
+          ...m,
+          id: "m" + Date.now() + Math.random().toString(36).substr(2, 5)
+        }))
+      });
     }
   }
 
@@ -3902,7 +3856,11 @@ function applyOfflineMerge(newProfiles, duplicateChoices) {
         const newProfile = {
           ...dp,
           id: "p" + Date.now() + Math.random().toString(36).substr(2, 5),
-          cloudId: null
+          cloudId: null,
+          matches: (dp.matches || []).map(m => ({
+            ...m,
+            id: "m" + Date.now() + Math.random().toString(36).substr(2, 5)
+          }))
         };
         state.profiles.push(newProfile);
       }
@@ -4002,11 +3960,6 @@ function resolveDuplicateProfiles() {
   applyOfflineMerge(pending.newProfiles, choices);
 }
 
-function cancelDuplicateResolution() {
-  closeModal();
-  delete window._pendingOfflineMerge;
-  showToast("⚠ Incorporação cancelada. Dados locais preservados — reaparecerão ao deslogar.");
-}
 
 function finishOfflineResolution() {
   delete window._pendingOffline;
@@ -4014,15 +3967,6 @@ function finishOfflineResolution() {
   setTimeout(() => promptFirstSync(), 500);
 }
 
-function skipOfflineResolution() {
-  const { duplicates } = window._pendingOffline || {};
-  delete window._pendingOffline;
-  if (duplicates && duplicates.length > 0) {
-    setTimeout(() => showDuplicateProfilesModal(duplicates), 300);
-  } else {
-    setTimeout(() => promptFirstSync(), 500);
-  }
-}
 
 async function aceitarSync(hasCloud) {
   closeModal();
