@@ -767,7 +767,7 @@ function initSupabase() {
       return false;
     }
   } catch (e) {
-    console.error("Falha ao iniciar Supabase:", e);
+    logStructuredError({ level: 'ERROR', operation: 'initSupabase', message: 'Falha ao iniciar Supabase', context: { error: e.message } });
     supabaseClient = null;
     return false;
   }
@@ -1092,7 +1092,7 @@ function loadState() {
     return parsed;
 
   } catch (e) {
-    console.warn("loadState: erro ao ler localStorage. Resetando.", e);
+    logStructuredError({ level: 'WARN', operation: 'loadState', message: 'Erro ao ler localStorage. Resetando.', context: { error: e.message } });
     return buildDefaultState();
   }
 }
@@ -1330,6 +1330,60 @@ function hideRecordTooltip() {
   const canvas = document.getElementById('ch-evolution');
   if (canvas) canvas.style.cursor = 'default';
 }
+
+/* ============================================================
+   LOG ESTRUTURADO E CAPTURA GLOBAL DE ERROS
+   ============================================================ */
+const LOG_KEY = 'gt_logs';
+const LOG_MAX_ENTRIES = 100;
+
+function logStructuredError({ level = 'ERROR', operation = 'unknown', message = '', context = {} }) {
+  const entry = {
+    timestamp: new Date().toISOString(),
+    level,
+    operation,
+    message,
+    context: {
+      url: window.location.href,
+      userAgent: navigator.userAgent,
+      ...context
+    }
+  };
+
+  const consoleMethod = level === 'CRITICAL' || level === 'ERROR' ? console.error : (level === 'WARN' ? console.warn : console.log);
+  consoleMethod(`[${entry.timestamp}] [${level}] [${operation}] ${message}`, context);
+
+  try {
+    const raw = localStorage.getItem(LOG_KEY);
+    const logs = raw ? JSON.parse(raw) : [];
+    logs.push(entry);
+    while (logs.length > LOG_MAX_ENTRIES) logs.shift();
+    localStorage.setItem(LOG_KEY, JSON.stringify(logs));
+  } catch (e) {
+    // Falha silenciosa para evitar loop infinito de erro
+  }
+}
+
+window.onerror = function(message, source, lineno, colno, error) {
+  logStructuredError({
+    level: 'CRITICAL',
+    operation: 'window.onerror',
+    message: message,
+    context: { source, lineno, colno, stack: error?.stack || null }
+  });
+  showToast("⚠ Algo deu errado. Tente recarregar a página (F5).");
+  return false;
+};
+
+window.onunhandledrejection = function(event) {
+  logStructuredError({
+    level: 'CRITICAL',
+    operation: 'unhandledrejection',
+    message: event.reason?.message || String(event.reason),
+    context: { stack: event.reason?.stack || null }
+  });
+  showToast("⚠ Algo deu errado. Tente recarregar a página (F5).");
+};
 
 
 /* ============================================================
@@ -2288,7 +2342,7 @@ async function deleteProfile(id) {
     }
     
     if (error) {
-      console.error("Erro ao excluir perfil da nuvem:", error);
+      logStructuredError({ level: 'ERROR', operation: 'deleteProfile', message: 'Erro ao excluir perfil da nuvem', context: { error: error.message } });
       showToast("⚠ Perfil excluído localmente. Falha ao remover da nuvem — tente o botão Sync.");
       return;
     }
@@ -3323,7 +3377,7 @@ async function syncToCloud(operation, data) {
       saveState();
     }
   } catch (e) {
-    console.error("Erro na sincronização:", e);
+    logStructuredError({ level: 'ERROR', operation: 'syncToCloud', message: 'Erro na sincronização', context: { error: e?.message || e?.details || '', requestedOperation: operation } });
     const msg = e?.message || e?.details || "";
     const code = e?.code || "";
     
@@ -3684,7 +3738,7 @@ async function mergeCloudData() {
     showToast("✓ Dados sincronizados!");
     return true;
   } catch (e) {
-    console.error("Erro ao sincronizar:", e);
+    logStructuredError({ level: 'ERROR', operation: 'mergeCloudData', message: 'Erro ao sincronizar', context: { error: e.message } });
     showToast("⚠ Erro ao sincronizar. Tente novamente.");
     return false;
   }
@@ -4078,7 +4132,7 @@ async function checkAuth() {
       refreshAll();
     }
   } catch (e) {
-    console.error("Erro ao verificar sessao:", e);
+    logStructuredError({ level: 'ERROR', operation: 'checkAuth', message: 'Erro ao verificar sessão', context: { error: e.message } });
     currentUser = null;
     state = loadState();
     activeProfileId = state.activeProfileId || null;
@@ -4162,7 +4216,7 @@ const { error } = await supabaseClient.auth.signInWithOAuth({
     btn.textContent = "Entrar";
     btn.disabled = false;
     showToast("⚠ Erro ao conectar com Discord");
-    console.error(error);
+    logStructuredError({ level: 'ERROR', operation: 'handleAuthClick', message: 'Erro ao conectar com Discord', context: { error: error.message } });
   }
 }
 
