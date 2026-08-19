@@ -1,0 +1,162 @@
+/* Nome e Local do Ficheiro: index.html */
+
+<title>AimData</title>
+<link rel="icon" type="image/png" href="favicon.png">
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+
+<link rel="stylesheet" href="styles.css">
+
+<div id="app">
+
+  <div id="header">
+    <div class="logo">
+      <img src="favicon.png" alt="AimData" width="32" height="32" style="display:block;">
+      <div class="app-title">Aim<em>Data</em></div>
+    </div>
+    <div style="display:flex;gap:8px;flex-shrink:0;align-items:center;">
+      <select id="profileSelect" onchange="switchProfile(this.value)"></select>
+      <button class="hbtn brand" onclick="openProfilesManager()">⚙ Perfis</button>
+    </div>
+    <div style="display:flex;gap:8px;flex-shrink:0;align-items:center;margin-left:auto;">
+      <!-- Conta: deslogado = Entrar direto | logado = Nome ▼ com dropdown -->
+      <div class="settings-wrapper" id="accountWrapper">
+        <button id="authBtn" class="hbtn brand" onclick="handleAuthClick()">🎮 Entrar com Discord</button>
+        <div class="settings-dropdown" id="accountDropdown">
+          <button class="settings-dropdown-item" onclick="handleManualSync();closeAccountDropdown()">☁ Sync</button>
+          <button class="settings-dropdown-item" onclick="exportData();closeAccountDropdown()">↓ Export</button>
+          <label class="settings-dropdown-item action">
+            ↑ Import
+            <input type="file" accept=".json" style="display:none" onchange="importData(event);closeAccountDropdown()">
+          </label>
+          <div style="border-top:1px solid var(--border);margin:4px 0;"></div>
+          <button class="settings-dropdown-item action" onclick="handleLogout();closeAccountDropdown()">⏏ Sair</button>
+        </div>
+      </div>
+      
+      <!-- ⋮ visível apenas quando deslogado -->
+      <div class="settings-wrapper" id="settingsWrapper">
+        <button class="hbtn brand" onclick="toggleSettingsDropdown(event)" id="settingsBtn">⋮</button>
+        <div class="settings-dropdown" id="settingsDropdown">
+          <button class="settings-dropdown-item" onclick="exportData();closeSettingsDropdown()">↓ Export</button>
+          <label class="settings-dropdown-item action">
+            ↑ Import
+            <input type="file" accept=".json" style="display:none" onchange="importData(event);closeSettingsDropdown()">
+          </label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="tabs">
+    <div style="display:flex;gap:4px;align-items:center;">
+      <button class="tab-btn active" onclick="setTab('dashboard')">📊 Dashboard</button>
+      <button class="tab-btn" onclick="setTab('log')">📋 Histórico</button>
+    </div>
+  </div>
+
+  <button id="fab-nova-partida" onclick="openAddMatchModal()" title="Registrar nova partida">
+    <span class="fab-icon">＋</span>
+    <span class="fab-text">Partida</span>
+  </button>
+
+  <div id="main-area">
+    <div id="content">
+
+    <div id="pane-dashboard" class="pane active">
+      <div id="dash-inner"></div>
+    </div>
+
+    <div id="pane-log" class="pane">
+      <div class="log-bar">
+        <div style="display:flex;align-items:flex-end;gap:8px;">
+          <div>
+            <label>Filtrar por mapa</label>
+            <select id="filterMap" onchange="renderLog()">
+              <option value="">Todos</option>
+            </select>
+          </div>
+          <div class="map-help" style="margin-bottom:2px;">
+            <span>?</span>
+            <div class="map-help-tooltip" style="width:320px;">
+              <strong style="color:var(--brand);font-family:'Rajdhani',sans-serif;">Histórico de Partidas</strong><br><br>
+              <strong>Filtro por Mapa</strong> — use o menu suspenso para exibir apenas partidas de um mapa específico. "Todos" remove o filtro.<br><br>
+              <strong>Ordenação</strong> — clique nos cabeçalhos de coluna para ordenar. Clique novamente para inverter (crescente ↔ decrescente).<br><br>
+              <strong>Edição Inline</strong> — clique em ✎ para editar data, hora, mapa, métricas e anotações diretamente na tabela. Os valores calculados se atualizam automaticamente.<br><br>
+              <strong>Duplicar</strong> — ⧉ cria uma cópia da partida com data/hora atual e novo número. Útil para partidas seguidas com resultados parecidos.<br><br>
+              <strong>Excluir</strong> — ✕ remove permanentemente. Não há desfazer.<br><br>
+              <strong>Anotações</strong> — 📝 indica observação. Passe o mouse para ler sem editar.<br><br>
+              <strong>Scroll</strong> — em telas pequenas, arraste horizontalmente para ver todas as colunas.
+            </div>
+          </div>
+        </div>
+        <div class="log-count" id="logCount"></div>
+      </div>
+      <div class="log-scroll">
+        <table class="log-table" id="logTable">
+          <thead><tr id="logHead"></tr></thead>
+          <tbody id="logBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+  <div id="match-modal-overlay">
+  <div id="match-modal">
+    <div class="modal-title" style="display:flex;align-items:center;gap:10px;">
+      <span>Registrar Nova Partida</span>
+      <div class="map-help" style="position:relative;flex-shrink:0;">
+        <span>?</span>
+        <div class="map-help-tooltip" style="left:0;width:240px;">
+          <strong>Atalhos</strong><br><br>
+          <strong>N</strong> — abre este formulário de qualquer tela.<br>
+          <strong>Enter</strong> — confirma e avança.<br>
+          <strong>Tab</strong> — volta um campo.<br>
+          <strong>Enter</strong> no Registrar — salva.<br>
+          <strong>Escape</strong> — limpa tudo (1×) ou fecha (2×).<br><br>
+          <strong>Mapa:</strong> digite para filtrar.<br>
+          <strong>Preview:</strong> calculado automaticamente.
+        </div>
+      </div>
+    </div>
+    <div id="match-modal-body"></div>
+    <div class="modal-actions" id="match-modal-actions">
+      <button class="modal-cancel" onclick="closeAddMatchModal()">Cancelar</button>
+      <button class="modal-save" onclick="addMatch()">Registrar Partida</button>
+    </div>
+  </div>
+</div>
+
+
+  </div>
+  </div>
+</div>
+
+<div id="modal-overlay" onclick="closeModalOutside(event)">
+  <div id="modal">
+    <div class="modal-title" id="modal-title">Criar Novo Perfil</div>
+    <div id="modal-body"></div>
+    <div class="modal-actions" id="modal-actions"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<div id="record-tooltip"></div>
+
+<script src="js/logging.js"></script>
+<script src="js/config.js"></script>
+<script src="js/state.js"></script>
+<script src="js/plugins.js"></script>
+<script src="js/records.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/navigation.js"></script>
+<script src="js/dashboard.js"></script>
+<script src="js/history.js"></script>
+<script src="js/match-modal.js"></script>
+<script src="js/profiles.js"></script>
+<script src="js/backup.js"></script>
+<script src="js/sync.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/init.js"></script>
+

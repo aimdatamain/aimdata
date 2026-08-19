@@ -1,0 +1,9 @@
+# Atalhos e arquivos temporários do Windows
+*.lnk
+*.tmp
+
+# Configurações de IDE
+.vscode/
+
+# Script de automação local
+git_save.py
