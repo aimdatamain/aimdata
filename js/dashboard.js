@@ -124,7 +124,7 @@ function renderDashboard() {
           <div class="onboarding-hero" style="margin-bottom:32px;">
             <h1 style="font-size:24px;">Perfil criado com sucesso!</h1>
             <p>Seu perfil <strong>${profile.game}${profile.mode ? ' · ' + profile.mode : ''}</strong> está pronto. Registre sua primeira partida para começar a ver estatísticas.</p>
-            <button class="onboarding-cta" onclick="setTab('add')">→ Registrar primeira partida</button>
+            <button class="onboarding-cta" onclick="openAddMatchModal()">→ Registrar primeira partida</button>
           </div>
           <div style="background:var(--surface);border:1px solid var(--border);padding:24px;opacity:0.4;pointer-events:none;">
             <div class="card-title brand" style="margin-bottom:16px;">Preview do seu dashboard</div>
@@ -139,6 +139,16 @@ function renderDashboard() {
   const PRIORITY_ORDER = ["kd","kpm","kpd","kills","deaths","points","damage","assists","position"];
   const chartable = PRIORITY_ORDER.filter(m => metrics.includes(m) && CHARTABLE.includes(m));
   let html = '<div class="dash-board">';
+  
+  if (profile.isDemo) {
+    html += `<div style="background:linear-gradient(90deg,rgba(0,229,255,0.08),rgba(0,229,255,0.02));border:1px solid var(--brand);border-radius:8px;padding:16px 20px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+      <div>
+        <div style="font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:var(--brand);margin-bottom:4px;">🎯 Modo de Demonstração</div>
+        <div style="font-size:13px;color:var(--sub);line-height:1.5;">Você está visualizando dados de exemplo. Crie seu próprio perfil para começar a registrar partidas reais.</div>
+      </div>
+      <button class="onboarding-cta" onclick="removeDemoProfile();openModal('new');" style="white-space:nowrap;">Criar meu perfil</button>
+    </div>`;
+  }
   
   const isFiltered = dashboardRecords !== 30 || dashboardSince || dashboardMapFilter;
   const recorteLabel = dashboardSince

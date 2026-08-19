@@ -12,6 +12,10 @@ function openAddMatchModal() {
     showToast("⚠ Crie um perfil antes de registrar partidas");
     return;
   }
+  if (profile.isDemo) {
+    showToast("⚠ Este é um perfil de demonstração. Crie seu próprio perfil para registrar partidas.");
+    return;
+  }
   document.getElementById("match-modal-overlay").classList.add("open");
   renderAddMatchForm();
 }
@@ -102,19 +106,29 @@ function renderAddMatchForm() {
   const isFirstMatch = profile.matches.length === 0;
   const inputMetrics = profile.metrics.filter(m => METRIC_MAP[m]?.type === "input");
   const calcMetrics = profile.metrics.filter(m => METRIC_MAP[m]?.type === "calc");
+  const REQUIRED_INPUTS = ['kills', 'deaths', 'time'];
   
   let html = `<div class="form-wrap" style="max-width:none;margin:0;">`;
-  html += `<div class="field"><label>Mapa</label><input type="text" id="f-map" list="f-map-list" placeholder="Digite ou selecione..." oninput="updatePreview()" autocomplete="off"><datalist id="f-map-list">${profile.maps.map(m=>`<option value="${m}">`).join("")}</datalist></div>`;
-  html += `<div class="field" style="margin-bottom:12px;"><label>Anotações</label><textarea id="f-notes" rows="3" placeholder="Como foi a partida? O que aprendeu?"></textarea></div>`;
   
+  // Mapa (primeiro)
+  html += `<div class="field"><label>Mapa <span style="color:var(--brand);font-size:11px;font-weight:400;">(obrigatório)</span></label><input type="text" id="f-map" list="f-map-list" placeholder="Digite ou selecione..." oninput="updatePreview()" autocomplete="off"><datalist id="f-map-list">${profile.maps.map(m=>`<option value="${m}">`).join("")}</datalist></div>`;
+  
+  // Métricas numéricas (linhas de 2)
   for (let i = 0; i < inputMetrics.length; i += 2) {
     html += `<div class="form-row" style="margin-bottom:12px;">`;
     for (let j = i; j < Math.min(i+2,inputMetrics.length); j++) {
       const m = inputMetrics[j]; const meta = METRIC_MAP[m];
-      html += `<div class="field" style="margin-bottom:0"><label>${meta.label}</label><input type="number" id="f-${m}" min="0" placeholder="ex: 0" oninput="updatePreview()"></div>`;
+      const isRequired = REQUIRED_INPUTS.includes(m);
+      const labelSuffix = isRequired 
+        ? ' <span style="color:var(--brand);font-size:11px;font-weight:400;">(obrigatório)</span>' 
+        : ' <span style="color:var(--muted);font-size:11px;font-weight:400;">(opcional)</span>';
+      html += `<div class="field" style="margin-bottom:0"><label>${meta.label}${labelSuffix}</label><input type="number" id="f-${m}" min="0" placeholder="ex: 0" oninput="updatePreview()"></div>`;
     }
     html += `</div>`;
   }
+  
+  // Anotações (sempre por último)
+  html += `<div class="field" style="margin-bottom:12px;"><label>Anotações <span style="color:var(--muted);font-size:11px;font-weight:400;">(opcional)</span></label><textarea id="f-notes" placeholder="Como foi a partida? O que aprendeu? O faria diferente?" style="height:40px;min-height:40px;transition:height 0.25s ease;resize:none;" onfocus="this.style.height='120px'" onblur="this.style.height='40px'"></textarea></div>`;
   
   if (isFirstMatch) {
     html += `<div style="background:rgba(0,229,255,0.05);border:1px solid var(--brand);padding:12px 16px;margin-top:16px;font-size:12px;color:var(--sub);">
@@ -164,6 +178,11 @@ async function addMatch() {
     console.log("=== addMatch ABORTADO: sem perfil ===");
     return;
   }
+  if (profile.isDemo) {
+    showToast("⚠ Não é possível adicionar partidas no perfil de demonstração");
+    console.log("=== addMatch ABORTADO: perfil demo ===");
+    return;
+  }
 
   const inputMetrics = profile.metrics.filter(m => METRIC_MAP[m]?.type === "input");
   console.log("Input metrics:", inputMetrics);
@@ -176,6 +195,7 @@ async function addMatch() {
   const notes = document.getElementById("f-notes")?.value.trim() || "";
   const values = { map, notes };
   let valid = true;
+  const REQUIRED_INPUTS = ['kills', 'deaths', 'time'];
 
   for (const m of inputMetrics) {
     const el = document.getElementById(`f-${m}`);
@@ -185,17 +205,19 @@ async function addMatch() {
       break;
     }
     const v = parseFloat(el.value);
-    if (isNaN(v) || v < 0) {
+    if (REQUIRED_INPUTS.includes(m) && (isNaN(v) || v < 0)) {
       console.log(`Campo ${m} inválido:`, el.value);
       valid = false;
       break;
     }
-    values[m] = v;
+    if (!isNaN(v) && v >= 0) {
+      values[m] = v;
+    }
   }
 
   console.log("Valid:", valid, "Map:", map);
   if (!valid || !map) {
-    showToast("⚠ Preencha todos os campos corretamente");
+    showToast("⚠ Preencha pelo menos \"Mapa\", \"Abates\", \"Mortes\" e \"Tempo\" para prosseguir");
     console.log("=== addMatch ABORTADO: validação falhou ===");
     return;
   }

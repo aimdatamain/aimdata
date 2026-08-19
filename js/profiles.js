@@ -13,10 +13,11 @@ function openProfilesManager() {
     <button class="hbtn confirm" onclick="openModal('new')">＋ Criar</button>
   </div>`;
   
-  if (!state.profiles.length) {
+  const realProfiles = state.profiles.filter(p => !p.isDemo);
+  if (!realProfiles.length) {
     bodyHtml += `<div class="empty-state"><div class="e-icon">🎮</div><div class="e-title">Nenhum perfil criado</div><div class="e-sub">Crie um perfil para visualizar a lista de perfis.</div></div>`;
   } else {
-    bodyHtml += state.profiles.map(p => `<div class="profile-item${p.id===activeProfileId?" active-profile":""}" style="cursor:pointer;flex-wrap:nowrap;" onclick="switchProfile('${p.id}');openProfilesManager();"><div style="flex:1;min-width:0;pointer-events:none;text-align:left;"><div style="margin-bottom:4px;"><span class="profile-name" style="flex:0 auto;">${profileLabel(p)}</span></div><div class="profile-sub">${p.matches.length} partidas · ${p.metrics.length} métricas · ${p.maps.length} mapas</div></div><div class="profile-actions" style="pointer-events:auto;flex-shrink:0;"><button class="hbtn action" style="font-size:9px;padding:5px 10px;letter-spacing:1px;" onclick="event.stopPropagation();openModal('edit','${p.id}')" title="Editar perfil">✎ Editar</button>${state.profiles.length>1?`<button class="hbtn danger" style="font-size:9px;padding:5px 10px;letter-spacing:1px;" onclick="event.stopPropagation();deleteProfile('${p.id}')" title="Excluir perfil">🗑 Excluir</button>`:""}</div></div>`).join("");
+    bodyHtml += realProfiles.map(p => `<div class="profile-item${p.id===activeProfileId?" active-profile":""}" style="cursor:pointer;flex-wrap:nowrap;" onclick="switchProfile('${p.id}');openProfilesManager();"><div style="flex:1;min-width:0;pointer-events:none;text-align:left;"><div style="margin-bottom:4px;"><span class="profile-name" style="flex:0 auto;">${profileLabel(p)}</span></div><div class="profile-sub">${p.matches.length} partidas · ${p.metrics.length} métricas · ${p.maps.length} mapas</div></div><div class="profile-actions" style="pointer-events:auto;flex-shrink:0;"><button class="hbtn action" style="font-size:9px;padding:5px 10px;letter-spacing:1px;" onclick="event.stopPropagation();openModal('edit','${p.id}')" title="Editar perfil">✎ Editar</button>${realProfiles.length>1?`<button class="hbtn danger" style="font-size:9px;padding:5px 10px;letter-spacing:1px;" onclick="event.stopPropagation();deleteProfile('${p.id}')" title="Excluir perfil">🗑 Excluir</button>`:""}</div></div>`).join("");
   }
   
   document.getElementById("modal-body").innerHTML = bodyHtml;
@@ -31,7 +32,7 @@ function openModal(mode, profileId) {
   document.getElementById("modal-title").textContent=isNew?"Criar Perfil":"Editar Perfil";
   modalMaps=isNew?[]:[...p.maps];
   const selectedMetrics=isNew?["kills","deaths","time","kd","kpm","kpd"]:p.metrics;
-  document.getElementById("modal-body").innerHTML=`<div class="field"><label>Jogo</label><input type="text" id="m-game" placeholder="ex: Delta Force" value="${p?.game||""}"></div><div class="form-row" style="margin-bottom:12px;"><div class="field" style="margin-bottom:0"><label>Modo</label><input type="text" id="m-mode" placeholder="ex: A/D" value="${p?.mode||""}"></div><div class="field" style="margin-bottom:0"><label>Servidor (opcional)</label><input type="text" id="m-server" placeholder="ex: BR" value="${p?.server||""}"></div></div><hr class="divider"><span class="section-label">Métricas</span><div class="metric-grid" id="metricGrid">${ALL_METRICS.map(m=>`<label class="metric-item"><input type="checkbox" value="${m.id}" ${selectedMetrics.includes(m.id)?"checked":""}><div><span>${m.label}</span>${m.type==="calc"?`<br><small>requer: ${m.needs.join(", ")}</small>`:""}</div></label>`).join("")}</div><hr class="divider"><span class="section-label">Mapas</span><div class="tag-list" id="modalTagList"></div><div class="add-tag-row"><input type="text" id="m-map-input" placeholder="Nome do mapa" onkeydown="if(event.key==='Enter')addModalMap()"><button class="add-tag-btn" onclick="addModalMap()">＋ Criar</button></div>`;
+  document.getElementById("modal-body").innerHTML=`<div class="field"><label>Jogo</label><input type="text" id="m-game" placeholder="ex: Delta Force, Call of Duty, Battlefield, Apex Legends, etc " value="${p?.game||""}"></div><div class="form-row" style="margin-bottom:12px;"><div class="field" style="margin-bottom:0"><label>Modo</label><input type="text" id="m-mode" placeholder="ex: Guerra, Mata Mata, Extração, Battle Royale, Tático e etc" value="${p?.mode||""}"></div><div class="field" style="margin-bottom:0"><label>Servidor (opcional)</label><input type="text" id="m-server" placeholder="ex: BR, NA, EU, etc" value="${p?.server||""}"></div></div><hr class="divider"><span class="section-label">Métricas</span><div class="metric-grid" id="metricGrid">${ALL_METRICS.map(m=>`<label class="metric-item"><input type="checkbox" value="${m.id}" ${selectedMetrics.includes(m.id)?"checked":""}><div><span>${m.label}</span>${m.type==="calc"?`<br><small>requer: ${m.needs.join(", ")}</small>`:""}</div></label>`).join("")}</div><hr class="divider"><span class="section-label">Mapas</span><div class="tag-list" id="modalTagList"></div><div class="add-tag-row"><input type="text" id="m-map-input" placeholder="Nome do mapa" onkeydown="if(event.key==='Enter')addModalMap()"><button class="add-tag-btn" onclick="addModalMap()">＋ Criar</button></div>`;
   renderModalTags();
   document.getElementById("modal-actions").innerHTML=`<button class="modal-cancel" onclick="closeModal()">Cancelar</button><button class="modal-save" onclick="saveModal()">Salvar</button>`;
   document.getElementById("modal-overlay").classList.add("open");
@@ -53,6 +54,7 @@ function saveModal() {
   if(!metrics.length){showToast("⚠ Selecione pelo menos uma métrica");return;}
   if(!metrics.length){showToast("⚠ Selecione pelo menos uma métrica");return;}
   if(modalMode==="new"){
+    removeDemoProfile();
     const id = "p" + Date.now();
     state.profiles.push({ id, game, mode, server, maps: modalMaps, metrics, matches: [] });
     activeProfileId=id; state.activeProfileId=id; showToast(`✓ Perfil "${game}" criado`);
@@ -68,6 +70,10 @@ function saveModal() {
   }
 }
 async function deleteProfile(id) {
+  if (id === '__demo__') {
+    showToast("⚠ O perfil de demonstração não pode ser excluído manualmente. Crie seu próprio perfil para substituí-lo.");
+    return;
+  }
   if (!confirm("Excluir este perfil e todos os dados?")) return;
   
   const profile = getProfile(id);

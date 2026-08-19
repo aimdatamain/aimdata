@@ -24,7 +24,12 @@ function getActiveProfile() { return getProfile(activeProfileId); }
 function loadState() {
   try {
     const raw = localStorage.getItem(getStorageKey());
-    if (!raw) return buildDefaultState();
+    if (!raw) {
+      const defaultState = buildDefaultState();
+      defaultState.profiles.push(JSON.parse(JSON.stringify(DEMO_PROFILE_DATA)));
+      defaultState.activeProfileId = '__demo__';
+      return defaultState;
+    }
 
     const parsed = JSON.parse(raw);
 
@@ -81,6 +86,11 @@ function loadState() {
       }
     }
 
+    // Injeta demo se não houver perfis reais (primeiro acesso ou tudo foi limpo)
+    if (!parsed.profiles.some(p => !p.isDemo)) {
+      parsed.profiles.push(JSON.parse(JSON.stringify(DEMO_PROFILE_DATA)));
+      parsed.activeProfileId = '__demo__';
+    }
     return parsed;
 
   } catch (e) {
@@ -88,7 +98,32 @@ function loadState() {
     return buildDefaultState();
   }
 }
-function saveState() { localStorage.setItem(getStorageKey(), JSON.stringify(state)); }
+function saveState() {
+  const stateToSave = {
+    ...state,
+    profiles: state.profiles.filter(p => !p.isDemo)
+  };
+  localStorage.setItem(getStorageKey(), JSON.stringify(stateToSave));
+}
+
+function injectDemoProfile() {
+  const hasRealProfiles = state.profiles.some(p => !p.isDemo);
+  if (hasRealProfiles) return false;
+  const alreadyHasDemo = state.profiles.some(p => p.id === '__demo__');
+  if (alreadyHasDemo) return false;
+  state.profiles.push(JSON.parse(JSON.stringify(DEMO_PROFILE_DATA)));
+  activeProfileId = '__demo__';
+  state.activeProfileId = '__demo__';
+  return true;
+}
+
+function removeDemoProfile() {
+  state.profiles = state.profiles.filter(p => !p.isDemo);
+  if (activeProfileId === '__demo__') {
+    activeProfileId = state.profiles[0]?.id || null;
+    state.activeProfileId = activeProfileId;
+  }
+}
 
 function buildDefaultState() {
   return {
@@ -105,10 +140,10 @@ function buildMatch(values, metrics, profile) {
   if (metrics.includes("kills"))    m.kills    = k;
   if (metrics.includes("deaths"))   m.deaths   = d;
   if (metrics.includes("time"))     m.time     = t;
-  if (metrics.includes("points"))   m.points   = parseFloat(values.points) || 0;
-  if (metrics.includes("damage"))   m.damage   = parseFloat(values.damage) || 0;
-  if (metrics.includes("assists"))  m.assists  = parseFloat(values.assists) || 0;
-  if (metrics.includes("position")) m.position = parseFloat(values.position) || 0;
+  if (metrics.includes("points"))   { const v = parseFloat(values.points);   if (!isNaN(v)) m.points = v; }
+  if (metrics.includes("damage"))   { const v = parseFloat(values.damage);   if (!isNaN(v)) m.damage = v; }
+  if (metrics.includes("assists"))  { const v = parseFloat(values.assists);  if (!isNaN(v)) m.assists = v; }
+  if (metrics.includes("position")) { const v = parseFloat(values.position); if (!isNaN(v)) m.position = v; }
   if (metrics.includes("kd"))       m.kd       = d > 0 ? +(k/d).toFixed(2) : k;
   if (metrics.includes("kpm"))      m.kpm      = t > 0 ? +(k/t).toFixed(2) : 0;
   if (metrics.includes("kpd"))      m.kpd      = t > 0 ? +(d/t).toFixed(2) : 0;

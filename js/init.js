@@ -19,9 +19,11 @@ document.addEventListener("click", function(e) {
 try {
   state = loadState();
   activeProfileId = state.activeProfileId || null;
+  
   renderProfileSelector();
   renderDashboard();
-  if (getActiveProfile()) {
+  const activeProfile = getActiveProfile();
+  if (activeProfile && !activeProfile.isDemo) {
     setTimeout(() => openAddMatchModal(), 300);
   }
 } catch (e) {

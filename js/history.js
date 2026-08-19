@@ -59,7 +59,10 @@ function renderLog() {
   document.getElementById("logBody").innerHTML = sortedFiltered.map((r, idx) => {
     if (editingMatchId === r.id) return buildEditRow(r, profile);
     const notesIcon = r.notes ? `<span title="${r.notes.replace(/"/g, '&quot;')}" style="cursor:help;color:var(--brand);font-size:14px;">📝</span>` : `<span style="color:var(--muted);font-size:14px;opacity:0.3;">📝</span>`;
-    return `<tr><td class="r-num" style="color:var(--sub);font-size:12px">#${r.match_number || (filtered.length - idx)}</td><td style="font-size:12px;color:var(--sub);white-space:nowrap">${formatDate(r.match_date)}</td><td style="font-family:'Rajdhani',sans-serif;font-weight:600">${r.map}</td>${inputMetrics.filter(m=>m!=="map").map(m => { const val=r[m]; let style="font-family:'Rajdhani',sans-serif;"; const colorVar=METRIC_COLORS[m]; if(colorVar)style+=`color:${colorVar};`; return `<td style="${style}">${val!==undefined?(m==="time"?val+"min":val):"—"}</td>`; }).join("")}${calcMetrics.map(m => `<td class="r-num" style="color:${METRIC_COLORS[m]||'var(--sub)'}">${r[m]!==undefined?r[m]:"—"}</td>`).join("")}<td style="text-align:center;">${notesIcon}</td><td><button class="action-btn" onclick="startEditMatch('${r.id}')">✎</button><button class="action-btn" onclick="duplicateMatch('${r.id}')">⧉</button><button class="action-btn del" onclick="deleteMatch('${r.id}')">✕</button></td></tr>`;  }).join("");
+    const actionsHtml = profile.isDemo
+      ? `<td style="color:var(--muted);font-size:11px;text-align:center;">Somente leitura</td>`
+      : `<td><button class="action-btn" onclick="startEditMatch('${r.id}')">✎</button><button class="action-btn" onclick="duplicateMatch('${r.id}')">⧉</button><button class="action-btn del" onclick="deleteMatch('${r.id}')">✕</button></td>`;
+    return `<tr><td class="r-num" style="color:var(--sub);font-size:12px">#${r.match_number || (filtered.length - idx)}</td><td style="font-size:12px;color:var(--sub);white-space:nowrap">${formatDate(r.match_date)}</td><td style="font-family:'Rajdhani',sans-serif;font-weight:600">${r.map}</td>${inputMetrics.filter(m=>m!=="map").map(m => { const val=r[m]; let style="font-family:'Rajdhani',sans-serif;"; const colorVar=METRIC_COLORS[m]; if(colorVar)style+=`color:${colorVar};`; return `<td style="${style}">${val!==undefined?(m==="time"?val+"min":val):"—"}</td>`; }).join("")}${calcMetrics.map(m => `<td class="r-num" style="color:${METRIC_COLORS[m]||'var(--sub)'}">${r[m]!==undefined?r[m]:"—"}</td>`).join("")}<td style="text-align:center;">${notesIcon}</td>${actionsHtml}</tr>`;  }).join("");
 }
 
 function sortLogTable(col) {
@@ -99,6 +102,12 @@ function cancelEditMatch() { editingMatchId = null; renderLog(); }
 
 function saveEditMatch() {
   const profile = getActiveProfile();
+  if (profile.isDemo) {
+    showToast("⚠ Não é possível editar partidas do perfil de demonstração");
+    editingMatchId = null;
+    renderLog();
+    return;
+  }
   const inputMetrics = profile.metrics.filter(m => METRIC_MAP[m]?.type === "input");
   const map = document.getElementById("edit-map").value;
   const dateInput = document.getElementById("edit-date")?.value;
@@ -174,6 +183,10 @@ function saveEditMatch() {
 
 function deleteMatch(id) {
   const profile = getActiveProfile();
+  if (profile.isDemo) {
+    showToast("⚠ Não é possível excluir partidas do perfil de demonstração");
+    return;
+  }
 
   profile.matches = profile.matches.filter(r => r.id !== id);
   normalizeProfileMatches(profile);
@@ -185,6 +198,10 @@ function deleteMatch(id) {
 function duplicateMatch(id) {
   const profile = getActiveProfile();
   if (!profile) return;
+  if (profile.isDemo) {
+    showToast("⚠ Não é possível duplicar partidas do perfil de demonstração");
+    return;
+  }
 
   const original = profile.matches.find(r => r.id === id);
   if (!original) return;
