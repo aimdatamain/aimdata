@@ -107,8 +107,10 @@ function renderAddMatchForm() {
   }
 
   const isFirstMatch = profile.matches.length === 0;
-  const inputMetrics = profile.metrics.filter(m => METRIC_MAP[m]?.type === "input");
-  const calcMetrics = profile.metrics.filter(m => METRIC_MAP[m]?.type === "calc");
+  const allInputMetrics = ALL_METRICS.filter(m => m.type === "input").map(m => m.id);
+  const allCalcMetrics = ALL_METRICS.filter(m => m.type === "calc").map(m => m.id);
+  const inputMetrics = allInputMetrics;
+  const calcMetrics = allCalcMetrics;
   const REQUIRED_INPUTS = ['kills', 'deaths', 'time'];
   
   let html = `<div class="form-wrap" style="max-width:none;margin:0;">`;
@@ -208,7 +210,7 @@ async function addMatch() {
     return;
   }
 
-  const inputMetrics = profile.metrics.filter(m => METRIC_MAP[m]?.type === "input");
+  const inputMetrics = ALL_METRICS.filter(m => m.type === "input").map(m => m.id);
   console.log("Input metrics:", inputMetrics);
   
   const mapEl = document.getElementById("f-map");
