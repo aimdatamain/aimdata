@@ -16,6 +16,7 @@ let mapTableVisible = localStorage.getItem("gt_mapTableVisible") !== "false";
 let evolutionTab = "kd";
 let recordDotsVisible = localStorage.getItem('gt_recordDots') !== 'false';
 let mapRankVisible = localStorage.getItem('gt_mapRankVisible') !== 'false';
+let dashboardMetricTab = null;
 
 /* === FILTRO GLOBAL DO DASHBOARD === */
 const DASH_PRESETS = [10, 30, 90, null]; // null = Total

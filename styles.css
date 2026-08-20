@@ -207,9 +207,9 @@ hr.divider{border:none;border-top:1px solid var(--border);margin:16px 0;}
 @keyframes fadeup{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
 .map-toggle{background:transparent;color:var(--sub);border:1px solid var(--border);padding:8px 16px;font-family:'Rajdhani',sans-serif;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;margin-top:12px;width:100%;text-align:left;transition:border .15s;}
 .map-toggle:hover{border-color:var(--brand);color:var(--brand);}
-.map-tabs{display:flex;gap:4px;margin-bottom:12px;border-bottom:1px solid var(--border);}
+.map-tabs{display:flex;gap:4px;margin-bottom:12px;border-bottom:1px solid var(--border);flex-wrap:wrap;}
 .map-tab-btn{
-  padding:0;width:44px;height:44px;font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:600;
+  padding:7px 14px;width:auto;min-width:44px;height:44px;font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:600;
   letter-spacing:1.5px;text-transform:uppercase;color:var(--sub);background:none;border:none;
   border-bottom:2px solid transparent;cursor:pointer;transition:all .15s;white-space:nowrap;
   display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;
@@ -227,9 +227,7 @@ hr.divider{border:none;border-top:1px solid var(--border);margin:16px 0;}
 #mapTableHead td:first-child{padding-top:4px;}
 .map-col-map{width:28%;min-width:140px;text-align:center;}
 .map-col-partidas{width:14%;text-align:center;}
-.map-col-kd{width:14%;text-align:center;}
-.map-col-kpm{width:14%;text-align:center;}
-.map-col-kpd{width:14%;text-align:center;}
+.map-col-metric{min-width:80px;text-align:center;}
 .map-card-title{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:16px;}
 .map-card-title-left{display:flex;align-items:center;gap:8px;}
 .map-help{position:relative;width:18px;height:18px;border:1px solid var(--border);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:help;transition:all .15s;flex-shrink:0;}
@@ -238,6 +236,7 @@ hr.divider{border:none;border-top:1px solid var(--border);margin:16px 0;}
 .map-help:hover span{color:var(--brand);}
 .map-help-tooltip{position:absolute;top:24px;left:0;background:#0d1017;border:1px solid var(--border);padding:12px 14px;width:260px;z-index:10;display:none;font-size:12px;line-height:1.6;color:var(--text);box-shadow:0 4px 12px rgba(0,0,0,.4);}
 .map-help-tooltip::before{content:'';position:absolute;top:-5px;left:6px;width:8px;height:8px;background:#0d1017;border-left:1px solid var(--border);border-top:1px solid var(--border);transform:rotate(45deg);}
+#match-modal .map-help-tooltip::before{left:auto;right:6px;}
 .map-help:hover .map-help-tooltip{display:block;}
 .map-help-tooltip strong{color:var(--brand);font-family:'Rajdhani',sans-serif;font-weight:600;}
 .map-view-tab-btn{padding:7px 14px;font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--sub);background:none;border:1px solid var(--border);cursor:pointer;transition:all .15s;white-space:nowrap;}
@@ -617,6 +616,17 @@ hr.divider{border:none;border-top:1px solid var(--border);margin:16px 0;}
   flex-wrap: wrap;
   min-height: 32px;
 }
+
+#dash-metric-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+#dash-metric-tabs .map-tab-btn {
+  height: 36px;
+}
 .filter-pill {
   display: inline-flex;
   align-items: center;
@@ -753,5 +763,16 @@ hr.divider{border:none;border-top:1px solid var(--border);margin:16px 0;}
   background: transparent;
   color: var(--sub);
   border: 1px solid var(--border);
+}
+
+.collapse-toggle:hover span {
+  color: var(--brand);
+}
+.collapse-arrow {
+  color: var(--sub);
+  font-size: 12px;
+}
+.collapse-toggle:hover .collapse-arrow {
+  color: var(--brand);
 }
 

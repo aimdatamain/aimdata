@@ -7,7 +7,7 @@
    "Dashboard".
    ============================================================ */
 
-function computeMapAgg(matches) {
+function computeMapAgg(matches, metrics) {
   const mapGroups = {};
   matches.forEach(r => {
     if (!mapGroups[r.map]) mapGroups[r.map] = [];
@@ -17,26 +17,85 @@ function computeMapAgg(matches) {
   Object.entries(mapGroups).forEach(([mapName, mapMatches]) => {
     const sample = mapMatches;
     const games = sample.length;
-    const kills = sample.reduce((a, r) => a + (r.kills || 0), 0);
-    const deaths = sample.reduce((a, r) => a + (r.deaths || 0), 0);
-    const time = sample.reduce((a, r) => a + (r.time || 0), 0);
-    mapAgg[mapName] = {
-      games,
-      kd: deaths > 0 ? +(kills / deaths).toFixed(2) : (kills > 0 ? kills : 0),
-      kpm: time > 0 ? +(kills / time).toFixed(2) : 0,
-      kpd: time > 0 ? +(deaths / time).toFixed(2) : 0,
-    };
+    mapAgg[mapName] = { games };
+    metrics.forEach(mid => {
+      const meta = METRIC_MAP[mid];
+      if (!meta) return;
+      if (meta.type === 'input') {
+        mapAgg[mapName][mid] = sample.reduce((a, r) => a + (r[mid] || 0), 0);
+      } else if (meta.type === 'calc') {
+        if (mid === 'kd') {
+          const kills = sample.reduce((a, r) => a + (r.kills || 0), 0);
+          const deaths = sample.reduce((a, r) => a + (r.deaths || 0), 0);
+          mapAgg[mapName][mid] = deaths > 0 ? +(kills / deaths).toFixed(2) : (kills > 0 ? kills : 0);
+        } else if (mid === 'kpm') {
+          const kills = sample.reduce((a, r) => a + (r.kills || 0), 0);
+          const time = sample.reduce((a, r) => a + (r.time || 0), 0);
+          mapAgg[mapName][mid] = time > 0 ? +(kills / time).toFixed(2) : 0;
+        } else if (mid === 'kpd') {
+          const deaths = sample.reduce((a, r) => a + (r.deaths || 0), 0);
+          const time = sample.reduce((a, r) => a + (r.time || 0), 0);
+          mapAgg[mapName][mid] = time > 0 ? +(deaths / time).toFixed(2) : 0;
+        } else {
+          const vals = sample.map(r => r[mid]).filter(v => v !== undefined && v !== null && !isNaN(v));
+          const sum = vals.reduce((a, b) => a + b, 0);
+          mapAgg[mapName][mid] = vals.length ? +(sum / vals.length).toFixed(2) : 0;
+        }
+      }
+    });
   });
   return mapAgg;
 }
 
-function buildMapTableHeadHtml(mapArr) {
-  function sortIcon(c) { if (mapSort.col !== c) return ''; return mapSort.dir === 'desc' ? ' ▼' : ' ▲'; }
-  const partidasLabel = 'Partidas';
-  return `<thead><tr><th class="map-col-map">Mapa</th><th class="map-col-partidas" style="cursor:pointer" onclick="sortMapTable('games')">${partidasLabel}${sortIcon('games')}</th><th class="map-col-kd" style="cursor:pointer" onclick="sortMapTable('kd')">K/D${sortIcon('kd')}</th><th class="map-col-kpm" style="cursor:pointer" onclick="sortMapTable('kpm')">KPM${sortIcon('kpm')}</th><th class="map-col-kpd" style="cursor:pointer" onclick="sortMapTable('kpd')">KPD${sortIcon('kpd')}</th></tr></thead><tbody>${mapArr.map(m => `<tr><td class="map-col-map"><span class="map-name">${m.map}</span></td><td class="num map-col-partidas">${m.games}</td><td class="num map-col-kd" style="color:var(--metric-kd)">${m.kd}</td><td class="num map-col-kpm" style="color:var(--metric-kpm)">${m.kpm}</td><td class="num map-col-kpd" style="color:var(--metric-kpd)">${m.kpd}</td></tr>`).join("")}</tbody>`;
+function resolveDashboardMetricTab(profile) {
+  if (!profile) return null;
+  const perfMetrics = profile.metrics.filter(m => m !== 'games' && m !== 'time');
+  if (!perfMetrics.length) return null;
+  if (dashboardMetricTab && perfMetrics.includes(dashboardMetricTab)) {
+    return dashboardMetricTab;
+  }
+  const PRIORITY = ["kd","kpm","kpd","kills","deaths","points","damage","assists","position"];
+  for (const m of PRIORITY) {
+    if (perfMetrics.includes(m)) return m;
+  }
+  return perfMetrics[0];
 }
 
-function buildMapPerformanceCardHtml(titleClass, canvasHeight, highlightedMap) {
+function setDashboardMetricTab(tab) {
+  const profile = getActiveProfile();
+  if (!profile) return;
+  const perfMetrics = profile.metrics.filter(m => m !== 'games' && m !== 'time');
+  if (!perfMetrics.includes(tab)) return;
+  dashboardMetricTab = tab;
+  mapSort.col = tab;
+  mapSort.dir = (tab === 'kpd' || tab === 'position') ? 'asc' : 'desc';
+  evolutionTab = tab;
+  renderDashboard();
+}
+
+function buildMapTableHeadHtml(mapArr, metrics) {
+  function sortIcon(c) { if (mapSort.col !== c) return ''; return mapSort.dir === 'desc' ? ' ▼' : ' ▲'; }
+  const partidasLabel = 'Partidas';
+  let ths = `<th class="map-col-map">Mapa</th><th class="map-col-partidas" style="cursor:pointer" onclick="sortMapTable('games')">${partidasLabel}${sortIcon('games')}</th>`;
+  metrics.forEach(mid => {
+    const meta = METRIC_MAP[mid];
+    if (!meta) return;
+    ths += `<th class="map-col-metric" style="cursor:pointer" onclick="sortMapTable('${mid}')">${meta.label}${sortIcon(mid)}</th>`;
+  });
+  const tbody = mapArr.map(m => {
+    let tds = `<td class="map-col-map"><span class="map-name">${m.map}</span></td><td class="num map-col-partidas">${m.games}</td>`;
+    metrics.forEach(mid => {
+      const meta = METRIC_MAP[mid];
+      if (!meta) return;
+      const colorVar = `var(--metric-${mid})`;
+      tds += `<td class="num map-col-metric" style="color:${colorVar}">${m[mid] !== undefined ? m[mid] : '—'}</td>`;
+    });
+    return `<tr>${tds}</tr>`;
+  }).join("");
+  return `<thead><tr>${ths}</tr></thead><tbody>${tbody}</tbody>`;
+}
+
+function buildMapPerformanceCardHtml(titleClass, canvasHeight, highlightedMap, metrics) {
   const highlightLabel = highlightedMap ? ` <span style="color:var(--brand);font-size:12px;font-family:'Rajdhani',sans-serif;">— ${highlightedMap}</span>` : '';
   return `<div class="card">
     <div class="map-card-title">
@@ -45,7 +104,7 @@ function buildMapPerformanceCardHtml(titleClass, canvasHeight, highlightedMap) {
         <div class="map-help">
           <span>?</span>
           <div class="map-help-tooltip">
-            <strong>K/D · KPM · KPD</strong> — clique nas abas para trocar a métrica do gráfico. As barras se reordenam automaticamente (maior para a esquerda; KPD é invertido — menor é melhor).<br><br>
+            <strong>Métrica ativa</strong> — o gráfico e a tabela seguem a métrica selecionada na barra global acima. As barras se reordenam automaticamente (maior para a esquerda; KPD é invertido — menor é melhor).<br><br>
             <strong>Amplitude</strong> — diferença entre o melhor e o pior mapa na métrica atual. Quanto mais baixa, mais consistente é seu desempenho entre cenários diferentes. Mapas distintos oferecem oportunidades, riscos e consequências diferentes, então uma amplitude pequena indica domínio estável independente do cenário.<br><br>
             <strong>Meta</strong> — a linha tracejada mostra sua meta pessoal definida no Quadro de Desempenho. Clique em <em>Meta</em> na legenda para mostrar ou ocultar a linha.<br><br>
             <strong>Ordenação da tabela</strong> — clique nos cabeçalhos Partidas, K/D, KPM ou KPD para ordenar. Clique novamente para inverter.<br><br>
@@ -58,10 +117,8 @@ function buildMapPerformanceCardHtml(titleClass, canvasHeight, highlightedMap) {
       </div>
       <div id="map-amplitude-indicator" style="text-align:right;z-index:5;"></div>
     </div>
-    <div class="map-tabs">
-      <button class="map-tab-btn ${mapSort.col==='kd'?'active metric-kd':''}" onclick="sortMapTable('kd')">K/D</button>
-      <button class="map-tab-btn ${mapSort.col==='kpm'?'active metric-kpm':''}" onclick="sortMapTable('kpm')">KPM</button>
-      <button class="map-tab-btn ${mapSort.col==='kpd'?'active metric-kpd':''}" onclick="sortMapTable('kpd')">KPD</button>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+      <button class="map-tab-btn ${mapSort.col === 'games' ? 'active' : ''}" style="height:32px;font-size:12px;" onclick="sortMapTable('games')">Ordenar por Partidas</button>
     </div>
     <canvas id="ch-mapbars" height="${canvasHeight}"></canvas>
     <button class="map-toggle" onclick="toggleMapTable()">${mapTableVisible ? '▾ Ocultar dados' : '▸ Mostrar dados'}</button>
@@ -102,6 +159,21 @@ function renderDashboard() {
     return;
   }
   const metrics = profile.metrics;
+  dashboardMetricTab = resolveDashboardMetricTab(profile);
+  if (!dashboardMetricTab) {
+    inner.innerHTML = `
+      <div class="onboarding" style="padding:48px 20px;">
+        <div class="onboarding-hero" style="margin-bottom:0;">
+          <div class="e-icon" style="font-size:36px;margin-bottom:12px;">📊</div>
+          <h1 style="font-size:22px;margin-bottom:12px;">Nenhuma métrica de performance ativa</h1>
+          <p style="max-width:480px;margin:0 auto 20px;">Ative pelo menos uma métrica de performance (K/D, KPM, KPD, etc.) no popover de métricas no topo do dashboard para visualizar as estatísticas.</p>
+        </div>
+      </div>`;
+    return;
+  }
+  mapSort.col = dashboardMetricTab;
+  mapSort.dir = (dashboardMetricTab === 'kpd' || dashboardMetricTab === 'position') ? 'asc' : 'desc';
+  evolutionTab = dashboardMetricTab;
   const matches = getDashboardMatches(profile);
   if (!matches.length) {
     const hasAnyMatches = profile.matches && profile.matches.length > 0;
@@ -166,6 +238,11 @@ function renderDashboard() {
       <span style="color:var(--sub);font-family:'Rajdhani',sans-serif;font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;">MAPA</span>
       <span class="${dashboardMapFilter ? 'filter-pill-val' : ''}">${mapLabel}</span>
     </div>
+    <span style="color:var(--muted);font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700;">|</span>
+    <div class="filter-pill" onclick="openMetricsPopover(this)">
+      <span style="color:var(--sub);font-family:'Rajdhani',sans-serif;font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;">Métricas</span>
+      <span class="filter-pill-val">${profile.metrics.length} ativas</span>
+    </div>
     ${isFiltered ? `<button class="filter-pill-reset" onclick="resetDashboardFilters()" title="Limpar filtros">↺</button>` : ''}
     <div class="map-help" style="position:relative;">
       <span>?</span>
@@ -177,6 +254,16 @@ function renderDashboard() {
         <em>O Quadro de Desempenho e o Gráfico de Evolução respeitam todos os filtros ativos. O card Performance por Mapa respeita o recorte, mas ignora o filtro de mapa para manter o contexto comparativo.</em>
       </div>
     </div>
+  </div>`;
+
+  html += `<div id="dash-metric-tabs">
+    ${profile.metrics.filter(m => m !== 'games' && m !== 'time').map(mid => {
+      const meta = METRIC_MAP[mid];
+      if (!meta) return '';
+      const isActive = dashboardMetricTab === mid;
+      const metricClass = `metric-${mid}`;
+      return `<button class="map-tab-btn ${isActive ? 'active ' + metricClass : ''}" onclick="setDashboardMetricTab('${mid}')">${meta.label}</button>`;
+    }).join('')}
   </div>`;
 
   const kpiData = [];
@@ -211,14 +298,15 @@ function renderDashboard() {
       const goalKey = `goal_${mid}_${activeProfileId}`;
       const goalVal = localStorage.getItem(goalKey) || "";
       const color = ["kd","kpm","kpd"].includes(mid) ? `metric-${mid}` : mid;
-      kpiData.push({ label, val: avg, color, min, max, goalKey, goalVal });
+      kpiData.push({ mid, label, val: avg, color, min, max, goalKey, goalVal });
     } else if (mid === "time") {
       return;
     }
   });
 
   html += `<div class="card"><div class="map-card-title"><div class="map-card-title-left"><div class="card-title brand" style="margin-bottom:0;">Quadro de Desempenho${dashboardMapFilter ? ` <span style="color:var(--brand);font-size:12px;font-family:'Rajdhani',sans-serif;">— ${dashboardMapFilter}</span>` : ''}</div><div class="map-help"><span>?</span><div class="map-help-tooltip" style="width:320px;"><strong style="color:var(--brand);font-family:'Rajdhani',sans-serif;">Quadro de Desempenho</strong><br><br><strong>Filtro Global</strong> — todos os valores deste quadro respeitam o filtro ativo no topo do Dashboard (últimas N partidas ou período por data). Médias, mínimos e máximos são recalculados automaticamente conforme o recorte.<br><br><strong>Média</strong> — valor central exibido em destaque. É a soma da métrica dividida pelo número de partidas no filtro.<br><br><strong>min / max</strong> — menor e maior valor individual alcançado em uma única partida dentro do período selecionado.<br><br><strong>Meta Pessoal</strong> — clique no campo tracejado abaixo da média, digite o valor desejado e pressione Enter. A meta é salva automaticamente no navegador.<br><br><strong>Progresso</strong> — aparece logo abaixo da meta. Verde = acima da meta (bom). Vermelho = abaixo da meta. Ciano = exatamente na meta.<br><br><strong>Métricas Invertidas</strong> — KPD e Posição funcionam ao contrário: quanto menor, melhor. O progresso inverte a lógica: verde quando você está ABAIXO da meta, vermelho quando ACIMA.</div></div></div></div>`;
-  html += `<div class="kpi-grid">${kpiData.map(k => {
+  const activeKpiData = kpiData.filter(k => k.mid === dashboardMetricTab);
+  html += `<div class="kpi-grid">${activeKpiData.map(k => {
     const hasRange = k.min !== undefined && k.max !== undefined;
     const rangeHtml = hasRange ? `<div class="kpi-range"><span class="kpi-min">${k.min}</span><span class="kpi-max">${k.max}</span></div>` : '';
     const subHtml = k.sub ? `<div class="kpi-sub">${k.sub}</div>` : '';
@@ -227,7 +315,7 @@ function renderDashboard() {
     if (k.goalKey && k.goalVal) {
       const goal = parseFloat(k.goalVal);
       const diff = +(k.val - goal).toFixed(2);
-      const isInverted = k.goalKey.includes('kpd');
+      const isInverted = k.goalKey.includes('kpd') || k.goalKey.includes('position');
       let progressClass = 'on-target';
       let progressText = 'na meta';
       if (diff > 0) {
@@ -245,16 +333,16 @@ function renderDashboard() {
         return `<div class="kpi ${colorVar}" data-goal-key="${k.goalKey||''}">${helpHtml}${metaHtml}<div class="kpi-main"><div class="kpi-label">${k.label}</div><div class="kpi-val ${colorVar}">${k.val}</div></div>${rangeHtml}${subHtml}</div>`;
 
   }).join("")}</div>`;
+  if (!activeKpiData.length) {
+    html += `<div style="padding:24px;color:var(--muted);text-align:center;font-size:13px;">Nenhum dado calculado para ${METRIC_MAP[dashboardMetricTab]?.label || dashboardMetricTab} no período selecionado.</div>`;
+  }
   html += `</div>`;
 
   if (!chartable.length) {
     html += `<div class="no-chart">⚠ Nenhuma métrica permite gráfico.<br><small>Ative métricas como K/D, KPM ou Kills no perfil.</small></div>`;
 
   } else {
-    const evoMetrics = chartable.filter(m => ["kd","kpm","kpd","kills"].includes(m));
-    const evoClasses = { kd: "metric-kd", kpm: "metric-kpm", kpd: "metric-kpd", kills: "metric-kills" };
-    const evoLabels = { kd: "K/D", kpm: "KPM", kpd: "KPD", kills: "Kills" };
-    
+    const evoMid = dashboardMetricTab && chartable.includes(dashboardMetricTab) ? dashboardMetricTab : null;
     html += `<div class="card" style="position:relative;">
       <div id="evolution-indicator" style="position:absolute;top:14px;right:20px;text-align:right;z-index:5;"></div>
       <div class="map-card-title">
@@ -263,30 +351,30 @@ function renderDashboard() {
             <div class="map-help">
             <span>?</span>
             <div class="map-help-tooltip">
-              <strong>Linha fina:</strong> valor bruto de cada partida (K/D, KPM, KPD ou Kills).<br><br>
+              <strong>Linha fina:</strong> valor bruto de cada partida (${evoMid ? METRIC_MAP[evoMid]?.label || evoMid : 'métrica ativa'}).<br><br>
               <strong>Linha tracejada:</strong> média móvel de 10 partidas — suaviza picos e mostra a tendência real.<br><br>
               <strong>🥇🥈🥉 Bolinhas:</strong> recordes pessoal nas partidas exibidas. Ouro = melhor, Prata = 2º, Bronze = 3º. Para KPD, menor valor vence.<br><br>
               <strong>Indicador %:</strong> no canto superior direito. Compara a primeira metade das partidas com a segunda metade. Verde = evolução, vermelho = regressão, ciano = estável.<br><br>
-              <strong>Abas K/D · KPM · KPD · Kills:</strong> clique para trocar a métrica do gráfico.<br><br>
               <strong>Total:</strong> histórico completo (compara 30 primeiras vs 30 últimas quando há 60+ partidas).<br>
               <strong>Recente:</strong> só as últimas 30 partidas (compara 15 primeiras vs 15 últimas desse bloco).<br><br>
               <em>Quanto mais partidas registradas, mais confiável a tendência.</em>
             </div>
           </div>
         </div>
-      </div>
-      <div class="map-tabs">`;
-    evoMetrics.forEach(m => {
-      html += `<button class="map-tab-btn ${evolutionTab===m?'active '+evoClasses[m]:''}" onclick="setEvolutionTab('${m}')">${evoLabels[m]}</button>`;
-    });
-    html += `</div><canvas id="ch-evolution" height="200"></canvas></div>`;
+      </div>`;
+    if (evoMid) {
+      html += `<canvas id="ch-evolution" height="200"></canvas>`;
+    } else {
+      html += `<div class="no-chart" style="margin:20px 0;">⚠ A métrica ativa não permite gráfico de evolução.<br><small>Selecione uma métrica chartável na barra global.</small></div>`;
+    }
+    html += `</div>`;
   }
   
   const allMapsInPeriod = [...new Set(getMapPerformanceMatches(profile).map(r => r.map))];
   if (allMapsInPeriod.length > 1 && metrics.includes("kills")) {
-    html += buildMapPerformanceCardHtml('brand', 280, dashboardMapFilter || null);
+    html += buildMapPerformanceCardHtml('brand', 280, dashboardMapFilter || null, profile.metrics);
   } else if (allMapsInPeriod.length > 1) {
-    html += buildMapPerformanceCardHtml('brand', 200, dashboardMapFilter || null);
+    html += buildMapPerformanceCardHtml('brand', 200, dashboardMapFilter || null, profile.metrics);
   }
   
   html += '</div>';
@@ -391,9 +479,9 @@ function renderDashboard() {
   
   const mapCtx = document.getElementById("ch-mapbars");
   if (mapCtx) {
-    const mapAgg = computeMapAgg(getMapPerformanceMatches(profile));
+    const mapAgg = computeMapAgg(getMapPerformanceMatches(profile), profile.metrics);
     const sortCol = mapSort.col;
-    const mapArr = Object.entries(mapAgg).map(([map, s]) => ({ map, games: s.games, kd: s.kd, kpm: s.kpm, kpd: s.kpd }));
+    const mapArr = Object.entries(mapAgg).map(([map, s]) => ({ map, ...s }));
     mapArr.sort((a, b) => {
       const valA = a[sortCol];
       const valB = b[sortCol];
@@ -513,10 +601,16 @@ function renderDashboard() {
                 const currentMapArr = chart._mapArr;
                 const currentSortCol = chart._sortCol;
                 const m = currentMapArr[idx];
-                const label = 'Partidas';
-                const primaryLabel = currentSortCol === 'games' ? label : (METRIC_MAP[currentSortCol]?.label || currentSortCol.toUpperCase());
-                const lines = [`${primaryLabel}: ${m[currentSortCol]}`, `K/D: ${m.kd}`, `KPM: ${m.kpm}`, `KPD: ${m.kpd}`];
-                if (currentSortCol !== 'games') lines.push(`${label}: ${m.games}`);
+                const partidasLabel = 'Partidas';
+                const primaryLabel = currentSortCol === 'games' ? partidasLabel : (METRIC_MAP[currentSortCol]?.label || currentSortCol.toUpperCase());
+                const lines = [`${primaryLabel}: ${m[currentSortCol]}`];
+                profile.metrics.forEach(mid => {
+                  if (mid === currentSortCol) return;
+                  if (m[mid] !== undefined && m[mid] !== null) {
+                    lines.push(`${METRIC_MAP[mid]?.label || mid}: ${m[mid]}`);
+                  }
+                });
+                if (currentSortCol !== 'games') lines.push(`${partidasLabel}: ${m.games}`);
                 return lines;
               }
             }
@@ -544,7 +638,7 @@ function renderDashboard() {
     charts["mapbars"]._sortCol = sortCol;
     
     const mapTableHead = document.getElementById("mapTableHead");
-    if (mapTableHead) mapTableHead.innerHTML = buildMapTableHeadHtml(mapArr);
+    if (mapTableHead) mapTableHead.innerHTML = buildMapTableHeadHtml(mapArr, profile.metrics);
   }
 }
 
@@ -619,9 +713,9 @@ function refreshMapAmplitude() {
   const profile = getActiveProfile();
   const matches = getMapPerformanceMatches(profile);
   if (!profile || !matches.length) { container.innerHTML = ""; return; }
-  const mapAgg = computeMapAgg(matches);
+  const mapAgg = computeMapAgg(matches, profile.metrics);
   const sortCol = mapSort.col;
-  const mapArr = Object.entries(mapAgg).map(([map, s]) => ({ map, games: s.games, kd: s.kd, kpm: s.kpm, kpd: s.kpd }));
+  const mapArr = Object.entries(mapAgg).map(([map, s]) => ({ map, ...s }));
   mapArr.sort((a, b) => { const valA = a[sortCol]; const valB = b[sortCol]; return mapSort.dir === 'desc' ? valB - valA : valA - valB; });
   const vals = mapArr.map(m => m[sortCol]).filter(v => v !== undefined && v !== null);
   if (vals.length < 2) { container.innerHTML = ""; return; }
@@ -646,7 +740,11 @@ function refreshMapChart() {
   if (!chart) return;
   const profile = getActiveProfile();
   if (!profile) return;
-  const mapAgg = computeMapAgg(getMapPerformanceMatches(profile));
+  if (mapSort.col !== 'games' && !profile.metrics.includes(mapSort.col)) {
+    mapSort.col = dashboardMetricTab || profile.metrics[0] || 'games';
+    mapSort.dir = (mapSort.col === 'kpd' || mapSort.col === 'position') ? 'asc' : 'desc';
+  }
+  const mapAgg = computeMapAgg(getMapPerformanceMatches(profile), profile.metrics);
   const sortCol = mapSort.col;
   const mapArr = Object.entries(mapAgg).map(([map, s]) => ({ map, games: s.games, kd: s.kd, kpm: s.kpm, kpd: s.kpd }));
   mapArr.sort((a, b) => { const valA = a[sortCol]; const valB = b[sortCol]; return mapSort.dir === 'desc' ? valB - valA : valA - valB; });
@@ -673,41 +771,25 @@ function refreshMapChart() {
   chart.update();
   refreshMapAmplitude();
   const mapTableHead = document.getElementById("mapTableHead");
-  if (mapTableHead) mapTableHead.innerHTML = buildMapTableHeadHtml(mapArr);
+  if (mapTableHead) mapTableHead.innerHTML = buildMapTableHeadHtml(mapArr, profile.metrics);
 }
 
 function sortMapTable(col) {
+  if (col !== 'games') {
+    setDashboardMetricTab(col);
+    return;
+  }
   if (mapSort.col === col) {
     mapSort.dir = mapSort.dir === 'desc' ? 'asc' : 'desc';
   } else {
     mapSort.col = col;
-    mapSort.dir = col === 'kpd' ? 'asc' : 'desc';
+    mapSort.dir = 'desc';
   }
   refreshMapChart();
-  const mapCard = document.getElementById('ch-mapbars')?.closest('.card');
-  if (mapCard) {
-    mapCard.querySelectorAll('.map-tab-btn').forEach(btn => {
-      btn.classList.remove('active', 'metric-kd', 'metric-kpm', 'metric-kpd');
-      const onclick = btn.getAttribute('onclick');
-      if (onclick && onclick.includes(`'${mapSort.col}'`)) btn.classList.add('active', `metric-${mapSort.col}`);
-    });
-  }
 }
 
 function setEvolutionTab(tab) {
-  evolutionTab = tab;
-  const evoCard = document.getElementById('ch-evolution')?.closest('.card');
-  if (evoCard) {
-    evoCard.querySelectorAll('.map-tab-btn').forEach(btn => {
-      btn.classList.remove('active', 'metric-kd', 'metric-kpm', 'metric-kpd', 'metric-kills');
-      const onclick = btn.getAttribute('onclick');
-      if (onclick && onclick.includes(`'${tab}'`)) {
-        btn.classList.add('active', `metric-${tab}`);
-      }
-    });
-  }
-  refreshEvolutionChart();
-  refreshEvolutionIndicator();
+  setDashboardMetricTab(tab);
 }
 
 function refreshEvolutionIndicator() {
@@ -715,10 +797,10 @@ function refreshEvolutionIndicator() {
   if (!evContainer) return;
   const profile = getActiveProfile();
   if (!profile) { evContainer.innerHTML = ""; return; }
-  const mid = evolutionTab;
-  const isInvertedMap = { kd: false, kpm: false, kpd: true, kills: false };
+  const mid = dashboardMetricTab || evolutionTab;
+  const isInverted = mid === 'kpd' || mid === 'position';
   const allMatches = getDashboardMatches(profile);
-  const evData = calcAdaptiveEvolution(allMatches, mid, isInvertedMap[mid]);
+  const evData = calcAdaptiveEvolution(allMatches, mid, isInverted);
   const variant = dashboardRecords === null ? 'geral' : 'recorte';
   evContainer.innerHTML = `<div>${formatEvolution(evData, variant)}</div>`;
 }
@@ -728,7 +810,7 @@ function refreshEvolutionChart() {
   if (!chart) return;
   const profile = getActiveProfile();
   if (!profile) return;
-  const mid = evolutionTab;
+  const mid = dashboardMetricTab || evolutionTab;
   const evoMatches = getDashboardMatches(profile);
   const labels = evoMatches.map(r => r.match_number);
   const vals = evoMatches.map(r => r[mid] ?? 0);
@@ -760,4 +842,59 @@ function toggleRecordDots() {
     chart.options.plugins.recordDots.enabled = recordDotsVisible;
     chart.update();
   }
+}
+
+function openMetricsPopover(anchorEl) {
+  closeFilterPopover();
+  let popover = document.getElementById('filter-popover');
+  if (!popover) {
+    popover = document.createElement('div');
+    popover.id = 'filter-popover';
+    document.body.appendChild(popover);
+  }
+  const profile = getActiveProfile();
+  let html = `<div class="filter-popover-title">Métricas Visíveis</div>`;
+  ALL_METRICS.forEach(m => {
+    const isChecked = profile.metrics.includes(m.id);
+    html += `<label class="filter-popover-opt" style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+      <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleMetricVisibility('${m.id}', this.checked)" style="accent-color:var(--brand);cursor:pointer;">
+      <span>${m.label}${m.type === 'calc' ? ' (calculada)' : ''}</span>
+    </label>`;
+  });
+  html += `<div class="filter-popover-actions">
+    <button class="filter-popover-btn" onclick="closeFilterPopover()">Fechar</button>
+  </div>`;
+  popover.innerHTML = html;
+  popover.classList.add('open');
+  const rect = anchorEl.getBoundingClientRect();
+  popover.style.top = (rect.bottom + window.scrollY + 6) + 'px';
+  popover.style.left = (rect.left + window.scrollX) + 'px';
+  activeFilterPopover = 'metrics';
+  setTimeout(() => {
+    document.addEventListener('click', closeFilterPopoverOutside, { once: true });
+  }, 0);
+}
+
+function toggleMetricVisibility(metricId, visible) {
+  const profile = getActiveProfile();
+  if (!profile) return;
+  if (visible) {
+    if (!profile.metrics.includes(metricId)) {
+      profile.metrics.push(metricId);
+    }
+  } else {
+    profile.metrics = profile.metrics.filter(m => m !== metricId);
+  }
+  saveState();
+  if (!visible && metricId === dashboardMetricTab) {
+    dashboardMetricTab = resolveDashboardMetricTab(profile);
+    if (dashboardMetricTab) {
+      mapSort.col = dashboardMetricTab;
+      mapSort.dir = (dashboardMetricTab === 'kpd' || dashboardMetricTab === 'position') ? 'asc' : 'desc';
+      evolutionTab = dashboardMetricTab;
+    }
+  }
+  renderDashboard();
+  renderLog();
+  showToast(visible ? `✓ ${METRIC_MAP[metricId]?.label || metricId} ativada` : `✗ ${METRIC_MAP[metricId]?.label || metricId} oculta`);
 }

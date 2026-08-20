@@ -154,9 +154,9 @@ const KPI_HELP = {
 };
 
 const ALL_METRICS = [
-  { id:"kills",    label:"Abates",        type:"input" },
+  { id:"kills",    label:"Abates",       type:"input" },
   { id:"deaths",   label:"Mortes",       type:"input" },
-  { id:"time",     label:"Tempo (min)",  type:"input" },
+  { id:"time",     label:"Duração",      type:"input" },
   { id:"points",   label:"Pontos",       type:"input" },
   { id:"damage",   label:"Dano",         type:"input" },
   { id:"assists",  label:"Assistências", type:"input" },

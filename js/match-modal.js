@@ -29,7 +29,10 @@ function setupMatchModalNav() {
   if (!modal || modal._navSetup) return;
   modal._navSetup = true;
   modal.addEventListener('keydown', function(e) {
-    const focusables = Array.from(modal.querySelectorAll('input:not([type="file"]):not([type="hidden"]), textarea, button.modal-save'));
+    const focusables = Array.from(modal.querySelectorAll('input:not([type="file"]):not([type="hidden"]), textarea, button.modal-save')).filter(el => {
+      const hiddenParent = el.closest('.collapse-content');
+      return !hiddenParent || hiddenParent.style.display !== 'none';
+    });
     const current = document.activeElement;
     const idx = focusables.indexOf(current);
     
@@ -111,24 +114,45 @@ function renderAddMatchForm() {
   let html = `<div class="form-wrap" style="max-width:none;margin:0;">`;
   
   // Mapa (primeiro)
-  html += `<div class="field"><label>Mapa <span style="color:var(--brand);font-size:11px;font-weight:400;">(obrigatório)</span></label><input type="text" id="f-map" list="f-map-list" placeholder="Digite ou selecione..." oninput="updatePreview()" autocomplete="off"><datalist id="f-map-list">${profile.maps.map(m=>`<option value="${m}">`).join("")}</datalist></div>`;
+  html += `<div class="field"><label>Mapa</label><input type="text" id="f-map" list="f-map-list" placeholder="Digite ou selecione..." oninput="updatePreview()" autocomplete="off"><datalist id="f-map-list">${profile.maps.map(m=>`<option value="${m}">`).join("")}</datalist></div>`;
   
-  // Métricas numéricas (linhas de 2)
-  for (let i = 0; i < inputMetrics.length; i += 2) {
-    html += `<div class="form-row" style="margin-bottom:12px;">`;
-    for (let j = i; j < Math.min(i+2,inputMetrics.length); j++) {
-      const m = inputMetrics[j]; const meta = METRIC_MAP[m];
-      const isRequired = REQUIRED_INPUTS.includes(m);
-      const labelSuffix = isRequired 
-        ? ' <span style="color:var(--brand);font-size:11px;font-weight:400;">(obrigatório)</span>' 
-        : ' <span style="color:var(--muted);font-size:11px;font-weight:400;">(opcional)</span>';
-      html += `<div class="field" style="margin-bottom:0"><label>${meta.label}${labelSuffix}</label><input type="number" id="f-${m}" min="0" placeholder="ex: 0" oninput="updatePreview()"></div>`;
+  const PRIMARY_INPUTS = ['kills', 'deaths', 'time'];
+  const primaryInputs = inputMetrics.filter(m => PRIMARY_INPUTS.includes(m));
+  const secondaryInputs = inputMetrics.filter(m => !PRIMARY_INPUTS.includes(m));
+  
+  // Métricas primárias (linhas de 3)
+  for (let i = 0; i < primaryInputs.length; i += 3) {
+    html += `<div class="form-row" style="margin-bottom:12px;grid-template-columns:1fr 1fr 1fr;">`;
+    for (let j = i; j < Math.min(i+3, primaryInputs.length); j++) {
+      const m = primaryInputs[j]; const meta = METRIC_MAP[m];
+      html += `<div class="field" style="margin-bottom:0"><label>${meta.label}</label><input type="number" id="f-${m}" min="0" placeholder="ex: 0" oninput="updatePreview()"></div>`;
     }
     html += `</div>`;
   }
   
+  // Métricas secundárias (colapsáveis)
+  if (secondaryInputs.length) {
+    html += `<div class="field" style="margin-bottom:8px;">
+      <div class="collapse-toggle" onclick="toggleSecondaryMetrics(this)" style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 0;">
+        <span class="collapse-arrow" style="display:inline-block;transition:transform 0.2s ease;">▸</span>
+        <span style="font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--sub);font-family:'Rajdhani',sans-serif;font-weight:600;">Métricas Secundárias</span>
+      </div>
+      <div class="collapse-content" style="display:none;">`;
+    
+    for (let i = 0; i < secondaryInputs.length; i += 3) {
+      html += `<div class="form-row" style="margin-bottom:12px;grid-template-columns:1fr 1fr 1fr;">`;
+      for (let j = i; j < Math.min(i+3, secondaryInputs.length); j++) {
+        const m = secondaryInputs[j]; const meta = METRIC_MAP[m];
+        html += `<div class="field" style="margin-bottom:0"><label>${meta.label}</label><input type="number" id="f-${m}" min="0" placeholder="ex: 0" oninput="updatePreview()"></div>`;
+      }
+      html += `</div>`;
+    }
+    
+    html += `</div></div>`;
+  }
+  
   // Anotações (sempre por último)
-  html += `<div class="field" style="margin-bottom:12px;"><label>Anotações <span style="color:var(--muted);font-size:11px;font-weight:400;">(opcional)</span></label><textarea id="f-notes" placeholder="Como foi a partida? O que aprendeu? O faria diferente?" style="height:40px;min-height:40px;transition:height 0.25s ease;resize:none;" onfocus="this.style.height='120px'" onblur="this.style.height='40px'"></textarea></div>`;
+  html += `<div class="field" style="margin-bottom:12px;"><label>Anotações</label><textarea id="f-notes" placeholder="Como foi a partida? O que aprendeu? O faria diferente?" style="height:40px;min-height:40px;transition:height 0.25s ease;resize:none;" onfocus="this.style.height='120px'" onblur="this.style.height='40px'"></textarea></div>`;
   
   if (isFirstMatch) {
     html += `<div style="background:rgba(0,229,255,0.05);border:1px solid var(--brand);padding:12px 16px;margin-top:16px;font-size:12px;color:var(--sub);">
@@ -299,6 +323,14 @@ async function addMatch() {
    fora do modal. Só fecha se o clique COMEÇOU e TERMINOU no
    fundo escuro (overlay).
    ============================================================ */
+function toggleSecondaryMetrics(el) {
+  const content = el.nextElementSibling;
+  const arrow = el.querySelector('.collapse-arrow');
+  const isOpen = content.style.display !== 'none';
+  content.style.display = isOpen ? 'none' : 'block';
+  arrow.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(90deg)';
+}
+
 (function setupMatchModalClose() {
   const overlay = document.getElementById("match-modal-overlay");
   if (!overlay) return;
