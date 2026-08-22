@@ -24,6 +24,31 @@ function closeAddMatchModal() {
   document.getElementById("match-modal-overlay").classList.remove("open");
 }
 
+function renderModalProfileBar() {
+  const bar = document.getElementById("match-modal-profile-bar");
+  if (!bar) return;
+  const realProfiles = state.profiles.filter(p => !p.isDemo);
+  if (realProfiles.length < 2) {
+    bar.style.display = "none";
+    bar.innerHTML = "";
+    return;
+  }
+  bar.style.display = "block";
+  bar.innerHTML = `<div style="display:flex;align-items:center;gap:8px;">
+    <span style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--sub);font-family:'Rajdhani',sans-serif;font-weight:600;">Perfil ativo:</span>
+    <select id="modal-profile-select" onchange="switchProfileInModal(this.value)" style="background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-family:'Rajdhani',sans-serif;font-size:13px;cursor:pointer;min-width:180px;">
+      ${realProfiles.map(p => `<option value="${p.id}"${p.id === activeProfileId ? " selected" : ""}>${profileLabel(p)}</option>`).join("")}
+    </select>
+  </div>`;
+}
+
+function switchProfileInModal(id) {
+  if (!id || id === activeProfileId) return;
+  switchProfile(id);
+  renderAddMatchForm();
+  showToast(`🎮 Perfil alterado para: ${profileLabel(getActiveProfile())}`);
+}
+
 function setupMatchModalNav() {
   const modal = document.getElementById('match-modal');
   if (!modal || modal._navSetup) return;
@@ -101,6 +126,7 @@ function setupMatchModalNav() {
 function renderAddMatchForm() {
   const profile = getActiveProfile();
   const body = document.getElementById("match-modal-body");
+  renderModalProfileBar();
   if (!profile) {
     body.innerHTML = `<div class="empty-state" style="padding:32px 20px;"><div class="e-icon">🎮</div><div class="e-title">Nenhum perfil ativo</div><div class="e-sub">Crie um perfil antes de adicionar partidas</div></div>`;
     return;
