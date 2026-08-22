@@ -145,13 +145,8 @@ async function handleAuthClick() {
   const btn = document.getElementById("authBtn");
   btn.textContent = "Conectando...";
   btn.disabled = true;
-// Substitua pela URL exata da sua página no Systeme.io
-const REDIRECT_URL = "https://aimdata.pages.dev/";
-
-const { error } = await supabaseClient.auth.signInWithOAuth({
-  provider: "discord",
-  options: { redirectTo: REDIRECT_URL }
-});
+const REDIRECT_URL = window.location.origin + window.location.pathname + window.location.search;
+const { error } = await supabaseClient.auth.signInWithOAuth({ provider: "discord", options: { redirectTo: REDIRECT_URL } });
   if (error) {
     btn.textContent = "Entrar";
     btn.disabled = false;

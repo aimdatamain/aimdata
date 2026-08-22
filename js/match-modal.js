@@ -25,21 +25,18 @@ function closeAddMatchModal() {
 }
 
 function renderModalProfileBar() {
-  const bar = document.getElementById("match-modal-profile-bar");
-  if (!bar) return;
+  const inline = document.getElementById("match-modal-profile-inline");
+  if (!inline) return;
   const realProfiles = state.profiles.filter(p => !p.isDemo);
   if (realProfiles.length < 2) {
-    bar.style.display = "none";
-    bar.innerHTML = "";
+    inline.style.display = "none";
+    inline.innerHTML = "";
     return;
   }
-  bar.style.display = "block";
-  bar.innerHTML = `<div style="display:flex;align-items:center;gap:8px;">
-    <span style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--sub);font-family:'Rajdhani',sans-serif;font-weight:600;">Perfil ativo:</span>
-    <select id="modal-profile-select" onchange="switchProfileInModal(this.value)" style="background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-family:'Rajdhani',sans-serif;font-size:13px;cursor:pointer;min-width:180px;">
-      ${realProfiles.map(p => `<option value="${p.id}"${p.id === activeProfileId ? " selected" : ""}>${profileLabel(p)}</option>`).join("")}
-    </select>
-  </div>`;
+  inline.style.display = "inline-block";
+  inline.innerHTML = `<select id="modal-profile-select" onchange="switchProfileInModal(this.value)" style="background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-family:'Rajdhani',sans-serif;font-size:12px;cursor:pointer;min-width:140px;">
+    ${realProfiles.map(p => `<option value="${p.id}"${p.id === activeProfileId ? " selected" : ""}>${profileLabel(p)}</option>`).join("")}
+  </select>`;
 }
 
 function switchProfileInModal(id) {
