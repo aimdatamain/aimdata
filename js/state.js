@@ -163,6 +163,7 @@ function resetDashboardFilters() {
   dashboardMapFilter = "";
   showToast(`↺ Filtros resetados`);
   renderDashboard();
+  renderLog();
 }
 
 function setDashboardMapFilter(mapName) {
@@ -170,6 +171,7 @@ function setDashboardMapFilter(mapName) {
   const label = mapName || 'Todos os mapas';
   showToast(`🗺 ${label}`);
   renderDashboard();
+  renderLog();
 }
 
 let mapGoalVisible = true;

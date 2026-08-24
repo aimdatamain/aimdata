@@ -244,6 +244,7 @@ function renderDashboard() {
       <span class="filter-pill-val">${profile.metrics.length} ativas</span>
     </div>
     ${isFiltered ? `<button class="filter-pill-reset" onclick="resetDashboardFilters()" title="Limpar filtros">↺</button>` : ''}
+    <span style="color:var(--muted);font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700;">|</span>
     <div class="map-help" style="position:relative;">
       <span>?</span>
       <div class="map-help-tooltip" style="right:0;left:auto;width:280px;">
@@ -537,15 +538,7 @@ function renderDashboard() {
                   datasetIndex: 99
                 });
               }
-              const rankColor = chart._sortHex || '#00e5ff';
-              original.push({
-                text: 'Posições',
-                fillStyle: mapRankVisible ? rankColor : 'transparent',
-                strokeStyle: mapRankVisible ? rankColor : '#4a5568',
-                lineWidth: 2,
-                hidden: !mapRankVisible,
-                datasetIndex: 98
-              });
+              const rankColor = chart.options.plugins.mapGoalLine?.color?.replace('33', '') || '#00e5ff'; original.push({ text: 'Posições', fillStyle: mapRankVisible ? rankColor : 'transparent', strokeStyle: mapRankVisible ? rankColor : '#4a5568', lineWidth: 2, hidden: !mapRankVisible, datasetIndex: 98 });
               return original;
             }
           },
@@ -633,9 +626,7 @@ function renderDashboard() {
         }
       }
     });
-    charts["mapbars"]._sortHex = sortHex;
-    charts["mapbars"]._mapArr = mapArr;
-    charts["mapbars"]._sortCol = sortCol;
+    charts["mapbars"]._mapArr = mapArr; charts["mapbars"]._sortCol = sortCol;
     
     const mapTableHead = document.getElementById("mapTableHead");
     if (mapTableHead) mapTableHead.innerHTML = buildMapTableHeadHtml(mapArr, profile.metrics);
@@ -757,10 +748,9 @@ function refreshMapChart() {
   chart.data.datasets[0].data = vals;
   chart.data.datasets[0].backgroundColor = mapArr.map(m => !dashboardMapFilter || m.map === dashboardMapFilter ? sortHex + "d9" : sortHex + "33");
   chart.data.datasets[0].borderColor = mapArr.map(m => !dashboardMapFilter || m.map === dashboardMapFilter ? sortHex : sortHex + "44");
-  chart.options.plugins.datalabels.color = sortHex;
-  chart.options.scales.y.suggestedMax = Math.max(...vals) * 1.12;
-  chart._sortHex = sortHex;
-  chart.data.labels = mapArr.map((m, i) => mapRankVisible ? `${i + 1}º ${m.map}` : m.map);
+
+  chart.options.plugins.datalabels.color = sortHex; chart.options.scales.y.suggestedMax = Math.max(...vals) * 1.12; chart.data.labels = mapArr.map((m, i) => mapRankVisible ? `${i + 1}º ${m.map}` : m.map);
+
   const goalValue = getMapGoalValue(mapSort.col, activeProfileId);
   if (!chart.options.plugins.mapGoalLine) chart.options.plugins.mapGoalLine = {};
   chart.options.plugins.mapGoalLine.enabled = goalValue !== null && goalValue > 0 && mapGoalVisible;
@@ -856,7 +846,7 @@ function openMetricsPopover(anchorEl) {
   let html = `<div class="filter-popover-title">Métricas Visíveis</div>`;
   ALL_METRICS.forEach(m => {
     const isChecked = profile.metrics.includes(m.id);
-    html += `<label class="filter-popover-opt" style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+    html += `<label class="filter-popover-opt metric-popover-row" style="cursor:pointer;">
       <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleMetricVisibility('${m.id}', this.checked)" style="accent-color:var(--brand);cursor:pointer;">
       <span>${m.label}${m.type === 'calc' ? ' (calculada)' : ''}</span>
     </label>`;

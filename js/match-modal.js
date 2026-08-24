@@ -6,7 +6,7 @@
    dos valores calculados (K/D, KPM, KPD).
    ============================================================ */
 
-function openAddMatchModal() {
+function openAddMatchModal(matchId = null) {
   const profile = getActiveProfile();
   if (!profile) {
     showToast("⚠ Crie um perfil antes de registrar partidas");
@@ -16,17 +16,27 @@ function openAddMatchModal() {
     showToast("⚠ Este é um perfil de demonstração. Crie seu próprio perfil para registrar partidas.");
     return;
   }
+  editingMatchId = matchId || null;
   document.getElementById("match-modal-overlay").classList.add("open");
   renderAddMatchForm();
 }
 
 function closeAddMatchModal() {
   document.getElementById("match-modal-overlay").classList.remove("open");
+  editingMatchId = null;
 }
 
 function renderModalProfileBar() {
   const inline = document.getElementById("match-modal-profile-inline");
   if (!inline) return;
+  
+  // Em modo edição, não permite troca de perfil (evita estado inconsistente)
+  if (editingMatchId !== null) {
+    inline.style.display = "none";
+    inline.innerHTML = "";
+    return;
+  }
+  
   const realProfiles = state.profiles.filter(p => !p.isDemo);
   if (realProfiles.length < 2) {
     inline.style.display = "none";
@@ -96,6 +106,13 @@ function setupMatchModalNav() {
       
     } else if (e.key === 'Escape') {
       e.preventDefault();
+      
+      // Em modo edição, fecha diretamente sem limpar
+      if (editingMatchId !== null) {
+        closeAddMatchModal();
+        return;
+      }
+      
       const hasValues = focusables.some(el => {
         if (el.tagName === 'INPUT' && el.type !== 'file' && el.type !== 'hidden') return el.value.trim() !== '';
         if (el.tagName === 'TEXTAREA') return el.value.trim() !== '';
@@ -129,7 +146,10 @@ function renderAddMatchForm() {
     return;
   }
 
-  const isFirstMatch = profile.matches.length === 0;
+  const isEditing = editingMatchId !== null;
+  const editMatch = isEditing ? profile.matches.find(m => m.id === editingMatchId) : null;
+
+  const isFirstMatch = profile.matches.length === 0 && !isEditing;
   const allInputMetrics = ALL_METRICS.filter(m => m.type === "input").map(m => m.id);
   const allCalcMetrics = ALL_METRICS.filter(m => m.type === "calc").map(m => m.id);
   const inputMetrics = allInputMetrics;
@@ -139,7 +159,17 @@ function renderAddMatchForm() {
   let html = `<div class="form-wrap" style="max-width:none;margin:0;">`;
   
   // Mapa (primeiro)
-  html += `<div class="field"><label>Mapa</label><input type="text" id="f-map" list="f-map-list" placeholder="Digite ou selecione..." oninput="updatePreview()" autocomplete="off"><datalist id="f-map-list">${profile.maps.map(m=>`<option value="${m}">`).join("")}</datalist></div>`;
+  html += `<div class="field"><label>Mapa</label><input type="text" id="f-map" list="f-map-list" placeholder="Digite ou selecione..." oninput="updatePreview()" autocomplete="off" value="${isEditing ? (editMatch?.map || '') : ''}"><datalist id="f-map-list">${profile.maps.map(m=>`<option value="${m}">`).join("")}</datalist></div>`;
+  
+  // Data e Hora (apenas em modo edição)
+  if (isEditing) {
+    const dateVal = editMatch?.match_date ? (toLocalDate(editMatch.match_date) || '') : '';
+    const timeVal = editMatch?.match_date ? (toLocalTime(editMatch.match_date) || '') : '';
+    html += `<div class="form-row" style="margin-bottom:12px;grid-template-columns:1fr 1fr;">
+      <div class="field" style="margin-bottom:0"><label>Data</label><input type="date" id="f-match-date" value="${dateVal}"></div>
+      <div class="field" style="margin-bottom:0"><label>Hora</label><input type="time" id="f-match-time" value="${timeVal}"></div>
+    </div>`;
+  }
   
   const PRIMARY_INPUTS = ['kills', 'deaths', 'time'];
   const primaryInputs = inputMetrics.filter(m => PRIMARY_INPUTS.includes(m));
@@ -150,7 +180,7 @@ function renderAddMatchForm() {
     html += `<div class="form-row" style="margin-bottom:12px;grid-template-columns:1fr 1fr 1fr;">`;
     for (let j = i; j < Math.min(i+3, primaryInputs.length); j++) {
       const m = primaryInputs[j]; const meta = METRIC_MAP[m];
-      html += `<div class="field" style="margin-bottom:0"><label>${meta.label}</label><input type="number" id="f-${m}" min="0" placeholder="ex: 0" oninput="updatePreview()"></div>`;
+      html += `<div class="field" style="margin-bottom:0"><label>${meta.label}</label><input type="number" id="f-${m}" min="0" placeholder="ex: 0" oninput="updatePreview()" value="${isEditing && editMatch?.[m] !== undefined ? editMatch[m] : ''}"></div>`;
     }
     html += `</div>`;
   }
@@ -168,7 +198,7 @@ function renderAddMatchForm() {
       html += `<div class="form-row" style="margin-bottom:12px;grid-template-columns:1fr 1fr 1fr;">`;
       for (let j = i; j < Math.min(i+3, secondaryInputs.length); j++) {
         const m = secondaryInputs[j]; const meta = METRIC_MAP[m];
-        html += `<div class="field" style="margin-bottom:0"><label>${meta.label}</label><input type="number" id="f-${m}" min="0" placeholder="ex: 0" oninput="updatePreview()"></div>`;
+        html += `<div class="field" style="margin-bottom:0"><label>${meta.label}</label><input type="number" id="f-${m}" min="0" placeholder="ex: 0" oninput="updatePreview()" value="${isEditing && editMatch?.[m] !== undefined ? editMatch[m] : ''}"></div>`;
       }
       html += `</div>`;
     }
@@ -177,7 +207,7 @@ function renderAddMatchForm() {
   }
   
   // Anotações (sempre por último)
-  html += `<div class="field" style="margin-bottom:12px;"><label>Anotações</label><textarea id="f-notes" placeholder="Como foi a partida? O que aprendeu? O faria diferente?" style="height:40px;min-height:40px;transition:height 0.25s ease;resize:none;" onfocus="this.style.height='120px'" onblur="this.style.height='40px'"></textarea></div>`;
+  html += `<div class="field" style="margin-bottom:12px;"><label>Anotações</label><textarea id="f-notes" placeholder="Como foi a partida? O que aprendeu? O faria diferente?" style="height:40px;min-height:40px;transition:height 0.25s ease;resize:none;" onfocus="this.style.height='120px'" onblur="this.style.height='40px'">${isEditing ? (editMatch?.notes || '') : ''}</textarea></div>`;
   
   if (isFirstMatch) {
     html += `<div style="background:rgba(0,229,255,0.05);border:1px solid var(--brand);padding:12px 16px;margin-top:16px;font-size:12px;color:var(--sub);">
@@ -190,6 +220,13 @@ function renderAddMatchForm() {
   html += `</div></div>`;
   
   body.innerHTML = html;
+  
+  // Atualiza título e botão do modal conforme modo
+  const titleEl = document.querySelector('#match-modal .modal-title > span:first-child');
+  const saveBtn = document.querySelector('#match-modal-actions .modal-save');
+  if (titleEl) titleEl.textContent = isEditing ? "Editar Partida" : "Registrar Nova Partida";
+  if (saveBtn) saveBtn.textContent = isEditing ? "Salvar Alterações" : "Registrar Partida";
+  
   updatePreview();
   setupMatchModalNav();
   setTimeout(() => {
@@ -268,6 +305,92 @@ async function addMatch() {
   if (!valid || !map) {
     showToast("⚠ Preencha pelo menos \"Mapa\", \"Abates\", \"Mortes\" e \"Tempo\" para prosseguir");
     console.log("=== addMatch ABORTADO: validação falhou ===");
+    return;
+  }
+
+  const isEditing = editingMatchId !== null;
+  
+  // ========== MODO EDIÇÃO ==========
+  if (isEditing) {
+    const matchIndex = profile.matches.findIndex(m => m.id === editingMatchId);
+    if (matchIndex === -1) {
+      showToast("⚠ Partida não encontrada");
+      editingMatchId = null;
+      closeAddMatchModal();
+      return;
+    }
+    
+    const originalMatch = profile.matches[matchIndex];
+    const prevRecords = getRecords(profile.matches, profile.metrics);
+    
+    // Atualiza campos básicos
+    const updated = { ...originalMatch };
+    updated.map = map;
+    updated.notes = notes;
+    
+    // Atualiza métricas de input
+    inputMetrics.forEach(m => {
+      if (values[m] !== undefined) {
+        updated[m] = values[m];
+      } else {
+        delete updated[m];
+      }
+    });
+    
+    // Recalcula métricas derivadas
+    const calcMetrics = profile.metrics.filter(m => METRIC_MAP[m]?.type === "calc");
+    const k = parseFloat(values.kills) || 0;
+    const d = parseFloat(values.deaths) || 0;
+    const t = parseFloat(values.time) || 0;
+    
+    calcMetrics.forEach(m => {
+      if (m === "kd") updated.kd = d > 0 ? +(k/d).toFixed(2) : k;
+      else if (m === "kpm") updated.kpm = t > 0 ? +(k/t).toFixed(2) : 0;
+      else if (m === "kpd") updated.kpd = t > 0 ? +(d/t).toFixed(2) : 0;
+    });
+    
+    // Atualiza data/hora se fornecidos
+    const dateEl = document.getElementById("f-match-date");
+    const timeEl = document.getElementById("f-match-time");
+    const originalDateStr = originalMatch.match_date ? toLocalDate(originalMatch.match_date) : '';
+    const originalTimeStr = originalMatch.match_date ? toLocalTime(originalMatch.match_date) : '';
+    
+    if (dateEl && timeEl) {
+      const dateVal = dateEl.value;
+      const timeVal = timeEl.value || originalTimeStr || "12:00";
+      if (dateVal && (dateVal !== originalDateStr || timeVal !== originalTimeStr)) {
+        const local = new Date(`${dateVal}T${timeVal}:00`);
+        updated.match_date = local.toISOString();
+      }
+    }
+    
+    // Substitui no array
+    profile.matches[matchIndex] = updated;
+    
+    // Se a data mudou, reordena e renumera
+    const dateChanged = updated.match_date !== originalMatch.match_date;
+    if (dateChanged) {
+      normalizeProfileMatches(profile);
+    }
+    
+    saveState();
+    
+    // Sync para nuvem
+    try {
+      await syncToCloud("upsert_match", { profileId: activeProfileId, match: updated });
+    } catch (e) {
+      console.log("Sync erro na edição:", e);
+    }
+    
+    const newRecords = getRecords(profile.matches, profile.metrics);
+    checkNewRecords(prevRecords, newRecords);
+    
+    editingMatchId = null;
+    closeAddMatchModal();
+    renderLog();
+    showToast("✓ Partida atualizada");
+    refreshAll();
+    console.log("=== addMatch CONCLUÍDO (edição) ===");
     return;
   }
 
