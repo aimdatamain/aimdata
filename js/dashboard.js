@@ -272,70 +272,86 @@ function renderDashboard() {
     const meta = METRIC_MAP[mid]; if (!meta) return;
     const vals = matches.map(r => r[mid]).filter(v => v !== undefined);
     if (!vals.length) return;
-    if (["kills","deaths"].includes(mid)) {
-      return;
-    } else if (["points","damage","assists","kd","kpm","kpd","position"].includes(mid)) {
-      let avg;
-      if (mid === "kd") {
-        const totK = matches.reduce((a,r) => a + (r.kills || 0), 0);
-        const totD = matches.reduce((a,r) => a + (r.deaths || 0), 0);
-        avg = totD > 0 ? +(totK / totD).toFixed(2) : (totK > 0 ? totK : 0);
-      } else if (mid === "kpm") {
-        const totK = matches.reduce((a,r) => a + (r.kills || 0), 0);
-        const totT = matches.reduce((a,r) => a + (r.time || 0), 0);
-        avg = totT > 0 ? +(totK / totT).toFixed(2) : 0;
-      } else if (mid === "kpd") {
-        const totD = matches.reduce((a,r) => a + (r.deaths || 0), 0);
-        const totT = matches.reduce((a,r) => a + (r.time || 0), 0);
-        avg = totT > 0 ? +(totD / totT).toFixed(2) : 0;
-      } else {
-        avg = +(vals.reduce((a,b) => a+b, 0) / vals.length).toFixed(2);
-      }
-      const min = +Math.min(...vals).toFixed(2);
-      const max = +Math.max(...vals).toFixed(2);
-      const n = vals.length;
-      const limitLabel = dashboardRecords === null ? 'Total' : (dashboardSince ? 'Período' : `Últimas ${n}`);
-      const label = `Média ${meta.label} (${limitLabel})`;
-      const goalKey = `goal_${mid}_${activeProfileId}`;
-      const goalVal = localStorage.getItem(goalKey) || "";
-      const color = ["kd","kpm","kpd"].includes(mid) ? `metric-${mid}` : mid;
-      kpiData.push({ mid, label, val: avg, color, min, max, goalKey, goalVal });
-    } else if (mid === "time") {
+    if (mid === "time") {
       return;
     }
+    let avg;
+    if (mid === "kd") {
+      const totK = matches.reduce((a,r) => a + (r.kills || 0), 0);
+      const totD = matches.reduce((a,r) => a + (r.deaths || 0), 0);
+      avg = totD > 0 ? +(totK / totD).toFixed(2) : (totK > 0 ? totK : 0);
+    } else if (mid === "kpm") {
+      const totK = matches.reduce((a,r) => a + (r.kills || 0), 0);
+      const totT = matches.reduce((a,r) => a + (r.time || 0), 0);
+      avg = totT > 0 ? +(totK / totT).toFixed(2) : 0;
+    } else if (mid === "kpd") {
+      const totD = matches.reduce((a,r) => a + (r.deaths || 0), 0);
+      const totT = matches.reduce((a,r) => a + (r.time || 0), 0);
+      avg = totT > 0 ? +(totD / totT).toFixed(2) : 0;
+    } else {
+      avg = +(vals.reduce((a,b) => a+b, 0) / vals.length).toFixed(2);
+    }
+    const min = +Math.min(...vals).toFixed(2);
+    const max = +Math.max(...vals).toFixed(2);
+    const n = vals.length;
+    const limitLabel = dashboardRecords === null ? 'Total' : (dashboardSince ? 'Período' : `Últimas ${n}`);
+    const label = `Média ${meta.label} (${limitLabel})`;
+    const goalKey = `goal_${mid}_${activeProfileId}`;
+    const goalVal = localStorage.getItem(goalKey) || "";
+    const color = ["kd","kpm","kpd"].includes(mid) ? `metric-${mid}` : mid;
+    const allZero = avg === 0 && min === 0 && max === 0;
+    const sub = allZero ? 'Todos os registros neste período são 0' : '';
+    kpiData.push({ mid, label, val: avg, color, min, max, goalKey, goalVal, sub });
   });
 
   html += `<div class="card"><div class="map-card-title"><div class="map-card-title-left"><div class="card-title brand" style="margin-bottom:0;">Quadro de Desempenho${dashboardMapFilter ? ` <span style="color:var(--brand);font-size:12px;font-family:'Rajdhani',sans-serif;">— ${dashboardMapFilter}</span>` : ''}</div><div class="map-help"><span>?</span><div class="map-help-tooltip" style="width:320px;"><strong style="color:var(--brand);font-family:'Rajdhani',sans-serif;">Quadro de Desempenho</strong><br><br><strong>Filtro Global</strong> — todos os valores deste quadro respeitam o filtro ativo no topo do Dashboard (últimas N partidas ou período por data). Médias, mínimos e máximos são recalculados automaticamente conforme o recorte.<br><br><strong>Média</strong> — valor central exibido em destaque. É a soma da métrica dividida pelo número de partidas no filtro.<br><br><strong>min / max</strong> — menor e maior valor individual alcançado em uma única partida dentro do período selecionado.<br><br><strong>Meta Pessoal</strong> — clique no campo tracejado abaixo da média, digite o valor desejado e pressione Enter. A meta é salva automaticamente no navegador.<br><br><strong>Progresso</strong> — aparece logo abaixo da meta. Verde = acima da meta (bom). Vermelho = abaixo da meta. Ciano = exatamente na meta.<br><br><strong>Métricas Invertidas</strong> — KPD e Posição funcionam ao contrário: quanto menor, melhor. O progresso inverte a lógica: verde quando você está ABAIXO da meta, vermelho quando ACIMA.</div></div></div></div>`;
-  const activeKpiData = kpiData.filter(k => k.mid === dashboardMetricTab);
-  html += `<div class="kpi-grid">${activeKpiData.map(k => {
-    const hasRange = k.min !== undefined && k.max !== undefined;
-    const rangeHtml = hasRange ? `<div class="kpi-range"><span class="kpi-min">${k.min}</span><span class="kpi-max">${k.max}</span></div>` : '';
-    const subHtml = k.sub ? `<div class="kpi-sub">${k.sub}</div>` : '';
-    const colorVar = k.color === 'confirm' ? 'confirm' : k.color;
-    let progressHtml = '';
-    if (k.goalKey && k.goalVal) {
-      const goal = parseFloat(k.goalVal);
-      const diff = +(k.val - goal).toFixed(2);
-      const isInverted = k.goalKey.includes('kpd') || k.goalKey.includes('position');
-      let progressClass = 'on-target';
-      let progressText = 'na meta';
-      if (diff > 0) {
-        progressClass = isInverted ? 'above-bad' : 'above';
-        progressText = `+${diff} acima`;
-      } else if (diff < 0) {
-        progressClass = isInverted ? 'below-good' : 'below';
-        progressText = `${diff} abaixo`;
+  const activeMid = dashboardMetricTab;
+  const availableMids = kpiData.map(k => k.mid);
+  
+  if (!availableMids.includes(activeMid)) {
+    html += `<div style="padding:24px;color:var(--muted);text-align:center;font-size:13px;">Nenhum dado calculado para ${METRIC_MAP[activeMid]?.label || activeMid} no período selecionado.</div>`;
+  } else {
+    const perfMetrics = profile.metrics.filter(m => m !== 'games' && m !== 'time');
+    const sideCandidates = PRIORITY_ORDER.filter(m => perfMetrics.includes(m) && m !== activeMid && availableMids.includes(m));
+    const leftMid = sideCandidates[0] || null;
+    const rightMid = sideCandidates[1] || null;
+    const orderedMids = [leftMid, activeMid, rightMid].filter(m => m !== null);
+    const displayKpiData = orderedMids.map(mid => kpiData.find(k => k.mid === mid)).filter(k => k !== undefined);
+    const isTriple = displayKpiData.length === 3;
+    const gridClass = isTriple ? 'kpi-grid triple' : 'kpi-grid';
+    html += `<div class="${gridClass}">${displayKpiData.map(k => {
+      const isCenter = k.mid === activeMid;
+      const kpiClass = isCenter ? `kpi ${k.color} kpi-center` : `kpi ${k.color} kpi-side`;
+      const hasRange = isCenter && k.min !== undefined && k.max !== undefined;
+      const rangeHtml = hasRange ? `<div class="kpi-range"><span class="kpi-min">${k.min}</span><span class="kpi-max">${k.max}</span></div>` : '';
+      const subHtml = isCenter && k.sub ? `<div class="kpi-sub">${k.sub}</div>` : '';
+      const colorVar = k.color === 'confirm' ? 'confirm' : k.color;
+      let metaHtml = '';
+      let progressHtml = '';
+      let helpHtml = '';
+      if (isCenter) {
+        if (k.goalKey && k.goalVal) {
+          const goal = parseFloat(k.goalVal);
+          const diff = +(k.val - goal).toFixed(2);
+          const isInverted = k.goalKey.includes('kpd') || k.goalKey.includes('position');
+          let progressClass = 'on-target';
+          let progressText = 'na meta';
+          if (diff > 0) {
+            progressClass = isInverted ? 'above-bad' : 'above';
+            progressText = `+${diff} acima`;
+          } else if (diff < 0) {
+            progressClass = isInverted ? 'below-good' : 'below';
+            progressText = `${diff} abaixo`;
+          }
+          progressHtml = `<div class="kpi-progress ${progressClass}">${progressText}</div>`;
+        }
+        const helpKey = k.goalKey ? k.goalKey.replace(`_${activeProfileId}`, '').replace('goal_', '') : null;
+        metaHtml = k.goalKey ? `<div class="kpi-meta"><span class="kpi-meta-label ${k.color}">Meta ${METRIC_MAP[helpKey]?.label || ''}</span><input class="kpi-goal-inline ${k.color}" type="number" value="${k.goalVal}" placeholder="—" step="0.01" onblur="saveGoal('${k.goalKey}',this.value)" onkeydown="if(event.key==='Enter')this.blur()"></div>${progressHtml}` : '';
+        helpHtml = helpKey ? `<div class="kpi-header"><div class="kpi-help"><span>?</span><div class="kpi-tooltip">${KPI_HELP[helpKey]}</div></div></div>` : '';
       }
-      progressHtml = `<div class="kpi-progress ${progressClass}">${progressText}</div>`;
-    }
-    const helpKey = k.goalKey ? k.goalKey.replace(`_${activeProfileId}`, '').replace('goal_', '') : null;
-    const metaHtml = k.goalKey ? `<div class="kpi-meta"><span class="kpi-meta-label ${k.color}">Meta ${METRIC_MAP[helpKey]?.label || ''}</span><input class="kpi-goal-inline ${k.color}" type="number" value="${k.goalVal}" placeholder="—" step="0.01" onblur="saveGoal('${k.goalKey}',this.value)" onkeydown="if(event.key==='Enter')this.blur()"></div>${progressHtml}` : '';
-    const helpHtml = helpKey ? `<div class="kpi-header"><div class="kpi-help"><span>?</span><div class="kpi-tooltip">${KPI_HELP[helpKey]}</div></div></div>` : '';
-        return `<div class="kpi ${colorVar}" data-goal-key="${k.goalKey||''}">${helpHtml}${metaHtml}<div class="kpi-main"><div class="kpi-label">${k.label}</div><div class="kpi-val ${colorVar}">${k.val}</div></div>${rangeHtml}${subHtml}</div>`;
-
-  }).join("")}</div>`;
-  if (!activeKpiData.length) {
-    html += `<div style="padding:24px;color:var(--muted);text-align:center;font-size:13px;">Nenhum dado calculado para ${METRIC_MAP[dashboardMetricTab]?.label || dashboardMetricTab} no período selecionado.</div>`;
+      const clickAttr = isCenter ? '' : ` onclick="setDashboardMetricTab('${k.mid}')"`;
+      return `<div class="${kpiClass}" data-goal-key="${k.goalKey||''}"${clickAttr}>${helpHtml}${metaHtml}<div class="kpi-main"><div class="kpi-label">${k.label}</div><div class="kpi-val ${colorVar}">${k.val}</div></div>${rangeHtml}${subHtml}</div>`;
+    }).join("")}</div>`;
   }
   html += `</div>`;
 
